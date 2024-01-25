@@ -160,9 +160,7 @@ def get_unsupervised_decomposition(path: str,
     img = np.float32(img)
     img = img[:, :, 300 : ]    
     vector = img.reshape((-1, img.shape[-1]))
-    model = NMF(n_components=NUM_COMPONENTS, init='random', random_state=0,
-                alpha_W,
-                l1_ratio=0.5)
+    model = NMF(n_components=NUM_COMPONENTS, init='random', random_state=0)
     W = model.fit_transform(vector)
     H = model.components_
     
@@ -243,7 +241,7 @@ def get_unsupervised_decomposition(path: str,
     return result
 
 paths = glob.glob(os.path.join(sys.argv[1], "*.npy"))
-NUM_COMPONENTS = 5
+NUM_COMPONENTS = int(sys.argv[3])
 colors = get_colors(NUM_COMPONENTS)
 
 results = []
