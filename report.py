@@ -28,7 +28,7 @@ def get_umap(results, colors_for_components):
     all_labels = []
     all_colors = []
     all_markers = []
-    marker_list = ['x', 'o', "D", "<", "*", "p", "v"]
+    marker_list = ['x', 'o', "D", "<", "*", "p", "v", 'h', '+', '|']
     colors = colors_for_components
     regions = [result["name"] for result in results]
     for region_index, result in enumerate(results):
