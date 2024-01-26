@@ -37,7 +37,8 @@ def get_unsupervised_decomposition(path: str,
         img[mask == 0] = 0
 
     vector = img.reshape((-1, img.shape[-1]))
-    vector = vector / (1e-6 + vector.sum(axis=-1)[:, None])
+    #vector = vector / (1e-6 + vector.sum(axis=-1)[:, None])
+    vector = vector / (1e-6 + np.median(vector, axis=-1)[:, None])
     model = NMF(n_components=NUM_COMPONENTS, init='random', random_state=0)
     W = model.fit_transform(vector)
     H = model.components_
@@ -49,7 +50,6 @@ def get_unsupervised_decomposition(path: str,
         diffs = []
         for i in range(len(H)):
             h = H[i, :]
-            h = h / (1e-6 + np.sum(h))
             h = h[None, :]
 
             sim = cosine_similarity(h, centers)[0, :]
