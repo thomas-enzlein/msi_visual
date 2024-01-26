@@ -26,7 +26,8 @@ def get_unsupervised_decomposition(path: str,
                                    colors: list,
                                    start_mz: int = 300,
                                    consistent_coloring: bool = True,
-                                   mask: Optional[np.ndarray] = None):
+                                   mask: Optional[np.ndarray] = None,
+                                   do_subsegmentation: bool = False):
     name = pathlib.Path(path).stem
     img = np.load(path)
     img = np.float32(img)
@@ -64,7 +65,7 @@ def get_unsupervised_decomposition(path: str,
     explanations = explanations[0 : , :, :]
     
     masks_per_component = []
-    if False:
+    if do_subsegmentation:
         for i in range(NUM_COMPONENTS):
             mask = np.uint8(explanations.argmax(axis=0) == i)
             mask = cv2.medianBlur(mask, 3)
@@ -146,14 +147,17 @@ def get_unsupervised_decomposition(path: str,
 if __name__ == '__main__':
     paths = glob.glob(os.path.join(sys.argv[1], "*.npy"))
     NUM_COMPONENTS = int(sys.argv[3])
+    do_subsegmentation = int(sys.argv[4])
     colors = get_colors(NUM_COMPONENTS)
+    colors = colors + colors
 
     results = []
     sub_segmentations = []
     for path in tqdm.tqdm(paths):
         result = get_unsupervised_decomposition(path,
                                                 NUM_COMPONENTS, 
-                                                colors=colors)
+                                                colors=colors,
+                                                do_subsegmentation=do_subsegmentation)
         masks = result["masks_per_component"]
         for mask in masks:
             sub_seg = get_unsupervised_decomposition(path,
