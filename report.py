@@ -31,21 +31,19 @@ def get_unsupervised_decomposition(path: str,
     name = pathlib.Path(path).stem
     img = np.load(path)
     img = np.float32(img)
-    img = img[:, :, 300 : ]
+    img = img[:, :, 600 : ]
 
     if mask is not None:
         img[mask == 0] = 0
 
     vector = img.reshape((-1, img.shape[-1]))
-    #vector = vector / (1e-6 + vector.sum(axis=-1)[:, None])
     vector = vector / (1e-6 + np.median(vector, axis=-1)[:, None])
     model = NMF(n_components=NUM_COMPONENTS, init='random', random_state=0)
     W = model.fit_transform(vector)
     H = model.components_
     order, diffs = None, None
     if consistent_coloring:
-        model = joblib.load("kmeans.joblib")
-        centers = model.cluster_centers_
+        centers = np.load("h_cosegmentation.npy")
         order = []
         diffs = []
         for i in range(len(H)):
@@ -62,7 +60,9 @@ def get_unsupervised_decomposition(path: str,
     explanations = W.transpose().reshape(NUM_COMPONENTS, img.shape[0], img.shape[1])
     explanations = explanations / explanations.sum(axis=(1, 2))[:, None, None]
     explanations = explanations / np.percentile(explanations, 99, axis=(1, 2))[:, None, None]
-    explanations = explanations[0 : , :, :]
+    # Remove the noise component
+    if consistent_coloring:
+        explanations[order.index(4), :] = 0
     
     masks_per_component = []
     if do_subsegmentation:
@@ -103,7 +103,7 @@ def get_unsupervised_decomposition(path: str,
         high = np.max(H[i, :])
         plt.ylim([0, math.ceil(high+2)])
         plt.tight_layout()
-        plt.bar(range(600, 1301), H[i, :], color = colors[i])
+        plt.bar(range(900, 1301), H[i, :], color = colors[i])
         plt.title(f'Region: {chr(int(name)+ord("A") )} Component: {i}', y=0.9)
 
         fig.canvas.draw()
