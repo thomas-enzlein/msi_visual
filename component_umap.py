@@ -26,18 +26,32 @@ def get_umap(results, colors_for_components):
     normalized = all_embeddings
     # normalized = all_embeddings - np.mean(all_embeddings, axis = 0)
     # normalized = normalized / (1e-5 + np.std(normalized, axis = 0))
+    # all_embeddings = normalized
     plt.gca().set_aspect("equal", "datalim")
     umap_embeddings = umap.UMAP(
-        n_neighbors=5, min_dist=0.9, verbose=True
+        n_neighbors=5, min_dist=0.95, verbose=True
     ).fit_transform(normalized)
     count = len(all_labels)
     for index, marker in enumerate(set(all_markers)):
         indices = [i for i in range(len(all_markers)) if all_markers[i] == marker]
-        sc = plt.scatter(*umap_embeddings[indices, :].T, s=30, c=[all_colors[i] for i in indices], 
-                    marker=marker, alpha=1.0, label=f"{chr(ord('A')+index)}")
-    plt.legend(loc='lower left')
-    plt.title(f"UMAP m/z vectors for regions and components")
-    plt.axis('off')
+        sc = plt.scatter(*umap_embeddings[indices, :].T,
+                         s=30,
+                         c=[all_colors[i] for i in indices], 
+                         marker=marker,
+                         alpha=1.0,
+                         label=f"Mouse model {chr(ord('A')+index)}")
+        plt.legend(loc='lower left')
+
+    ax = plt.gca()
+    leg = ax.get_legend()
+    for handle in leg.legendHandles:
+        handle.set_color('black')
+
+        
+    plt.title(f"UMAP m/z vectors for different animals and their segmented components")
+    plt.xlabel("First UMAP embedding dimension")
+    plt.ylabel("Second UMAP embedding dimension")
+    #plt.axis('off')
     fig.canvas.draw()
     data = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
     plt.close(fig=fig)
