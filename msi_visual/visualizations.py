@@ -8,6 +8,7 @@ from collections import defaultdict
 from sklearn.metrics import roc_auc_score
 import cmapy
 from PIL import Image
+from functools import lru_cache
 
 def show_factorization_on_image(img: np.ndarray,
                                 explanations: np.ndarray,
@@ -233,4 +234,191 @@ def get_difference_summary_table(region_gray_image, digitized, bins, top_mzs, co
         rows.append(cells)
     rows = np.vstack(rows)
     return rows
+
+
+def create_ion_image(img, mz):
+    ion = img[:, :, mz]
+    ion = ion / np.percentile(ion[:], 99)
+    ion[ion > 1] = 1
+    ion = np.uint8(255 * ion)
+    ion = cv2.applyColorMap(ion, cmapy.cmap('cividis'))[:, :, ::-1]
+    return ion
+
+
+def get_mask(visualization, segmentation_mask, x, y):
+    label = segmentation_mask[y, x]
+
+    result = visualization.copy()
+    mask = np.uint8(255 * (segmentation_mask == label))
+    result[mask == 0] = 0
+    return result
+    
+
+class RegionComparison:
+    def __init__(self, mz_image, segmentation_mask, visualization, start_mz=300, bins_per_mz=5):
+        self.mz_image = mz_image
+        self.segmentation_mask = segmentation_mask
+        self.visualization = visualization
+        self.start_mz = start_mz
+        self.bins_per_mz = bins_per_mz
+    
+    def ranking_comparison(self, mask_a, mask_b, peak_minimum=0.000001 * 1e10):
+        values_a = self.mz_image[mask_a > 0]
+        values_b = self.mz_image[mask_b > 0]
+
+        both = np.concatenate((values_a, values_b), axis=0)
+        peaks_a = np.percentile(values_a, 30, axis=0)
+        peaks_a, _ = find_peaks(peaks_a, height=(peak_minimum, None))
+        peaks_b = np.percentile(values_b, 30, axis=0)
+        peaks_b, _ = find_peaks(peaks_b, height=(peak_minimum, None))
+
+        labels  = [0] * len(values_a) + [1] * len(values_b)
+        peaks = list(peaks_a) + list(peaks_b)
+        aucs = defaultdict(float)
+        for mz in tqdm.tqdm(peaks):
+            auc = roc_auc_score(labels, both[:, mz])
+            aucs[mz] += auc
+        return aucs
+
+    def compare_two_points(self, point_a, point_b):
+        x1, y1 = point_a
+        x2, y2 = point_b
+        label_a = self.segmentation_mask[y1, x1]
+        label_b = self.segmentation_mask[y2, x2]
+        return self.compare_two_labels(label_a, label_b)
+
+    @lru_cache()
+    def compare_two_labels(self, label_a, label_b):
+        mask_a = np.uint8(255 * (self.segmentation_mask == label_a))
+        mask_b = np.uint8(255 * (self.segmentation_mask == label_b))
+        aucs = self.ranking_comparison(mask_a, mask_b)
+        return aucs, mask_a, mask_b
+
+    def visualize_comparison_between_points(self, point_a, point_b):
+        aucs, mask_a, mask_b = self.compare_two_points(point_a, point_b)
+        color_a = self.visualization[mask_a > 0]
+        color_a = color_a.mean(axis=0)
+        color_b = self.visualization[mask_b > 0].mean(axis=0)
+
+        image = self._create_auc_visualization(aucs, color_a, color_b)
+        return image
+
+    def _create_auc_visualization(self, aucs, color_a, color_b):
+        combination = np.hstack((color_a * np.ones((100, 100, 3), dtype=np.uint8), color_b * np.ones((100, 100, 3), dtype=np.uint8)))
+        combination = np.uint8(combination)
+        cells = []
+        top_pos_auc = {k: v for k, v in sorted(aucs.items(), key=lambda item: item[1])[::-1][:10]}
+        top_mzs_from_both = {}
+        top_neg_auc = {k: v for k, v in sorted(aucs.items(), key=lambda item: -item[1])[::-1][:10]}
+
+        for k, v in top_neg_auc.items():
+            if v < 0.5:
+                top_mzs_from_both[k] = v
+
+        for k, v in top_pos_auc.items():
+            if v > 0.5:
+                top_mzs_from_both[k] = v
+        for mz, auc in top_mzs_from_both.items():
+
+            if abs(2*auc - 1) < 0.1:
+                continue
+            mz = self.start_mz + mz/self.bins_per_mz
+            cell = np.ones((100, 100, 3), dtype=np.uint8) * 255
+
+            if auc > 0.5:
+                icon = np.ones((8, 8, 3)) * color_b
+            else:
+                icon = np.ones((8, 8, 3)) * color_a
+            
+            cell[20 : 20 + icon.shape[0], 10 : 10 + icon.shape[1] , : ] = icon
+
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            bottomLeftCornerOfText = (10,50)
+            fontScale              = 0.5
+            fontColor              = (0,0,00)
+            thickness              = 1
+            lineType               = 1
+            cell = cv2.putText(cell, f"{mz:.3f}",
+                bottomLeftCornerOfText, 
+                font, 
+                fontScale,
+                fontColor,
+                thickness,
+                lineType) 
+            cells.append(cell)
+        if len(cells) < 20:
+            for _ in range(20 - len(cells)):
+                cells.append(np.ones((100, 100, 3), dtype=np.uint8) * 255)
+
+        cells = np.hstack(cells)
+        cells = np.hstack((combination, cells))        
+        return cells
+
+
+
+
+
+    # def ranking_comparison(self, point_a, point_b):
+    #     x1, y1 = point_a
+    #     x2, y2 = point_b
+
         
+        
+
+
+
+# def get_(region_gray_image, digitized, bins, top_mzs, color_scheme):
+#     rows = []
+#     for i, j in top_mzs:
+#         color_b = cv2.applyColorMap(np.uint8(np.ones((100, 100)) * region_gray_image[digitized == bins[j]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
+#         color_a = cv2.applyColorMap(np.uint8(np.ones((100, 100)) * region_gray_image[digitized == bins[i]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
+#         combination = np.hstack((color_a, color_b))
+#         cells = []
+#         top_pos_auc = {k: v for k, v in sorted(top_mzs[i, j].items(), key=lambda item: item[1])[::-1][:10]}
+#         top_mzs_from_both = {}
+#         top_neg_auc = {k: v for k, v in sorted(top_mzs[i, j].items(), key=lambda item: -item[1])[::-1][:10]}
+
+#         for k, v in top_neg_auc.items():
+#             if v < 0:
+#                 top_mzs_from_both[k] = v
+
+#         for k, v in top_pos_auc.items():
+#             if v > 0:
+#                 top_mzs_from_both[k] = v
+
+#         for mz, auc in top_mzs_from_both.items():
+#             if abs(auc) < 0.7:
+#                 continue
+#             mz = 300 + mz/5
+#             cell = np.ones((100, 100, 3), dtype=np.uint8) * 255
+
+#             if auc > 0:
+#                 icon = cv2.applyColorMap(np.uint8(np.ones((8, 8)) * region_gray_image[digitized == bins[j]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
+#             else:
+#                 icon = cv2.applyColorMap(np.uint8(np.ones((8, 8)) * region_gray_image[digitized == bins[i]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
+            
+#             cell[20 : 20 + icon.shape[0], 10 : 10 + icon.shape[1] , : ] = icon
+
+#             font = cv2.FONT_HERSHEY_SIMPLEX
+#             bottomLeftCornerOfText = (10,50)
+#             fontScale              = 0.5
+#             fontColor              = (0,0,00)
+#             thickness              = 1
+#             lineType               = 1
+#             cell = cv2.putText(cell, f"{mz:.3f}",
+#                 bottomLeftCornerOfText, 
+#                 font, 
+#                 fontScale,
+#                 fontColor,
+#                 thickness,
+#                 lineType) 
+#             cells.append(cell)
+#         if len(cells) < 20:
+#             for _ in range(20 - len(cells)):
+#                 cells.append(np.ones((100, 100, 3), dtype=np.uint8) * 255)
+
+#         cells = np.hstack(cells)
+#         cells = np.hstack((combination, cells))
+#         rows.append(cells)
+#     rows = np.vstack(rows)
+#     return rows

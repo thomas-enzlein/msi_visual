@@ -19,7 +19,7 @@ show_pages_from_config()
 paths = json.load(open(sys.argv[1]))
 
 with st.sidebar:
-    number_of_components = st.selectbox('Number of components', list(range(2, 20)))
+    number_of_components = st.selectbox('Number of components', list(range(2, 50)))
     start_bin = st.number_input('Start m/z bin', 0)
     end_bin = st.number_input('End m/z bin', value=None)
     output_path = st.text_input('Output path for segmentation model', 'models/nmf_model.joblib')
