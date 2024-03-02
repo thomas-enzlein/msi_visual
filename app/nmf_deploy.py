@@ -11,7 +11,7 @@ from collections import defaultdict
 from argparse import Namespace
 from st_pages import show_pages_from_config, add_page_title
 from streamlit_image_coordinates import streamlit_image_coordinates
-
+from pathlib import Path
 import importlib
 import msi_visual
 importlib.reload(msi_visual)
@@ -22,7 +22,7 @@ from msi_visual import objects
 importlib.reload(visualizations)
 
 paths = json.load(open(sys.argv[1]))
-st.title('Visualize MSI with NMF')
+st.title('NMF-Stain visualization for MSI')
 results = {}
 image_to_show = []
 
@@ -59,7 +59,7 @@ if start:
         st.session_state.results = None
         st.session_state.difference_visualizations = None
 
-        st.session_state.bins = eval(open(os.path.join(folder, "args.txt")).read()).bins
+        st.session_state.bins = eval(open(Path(paths[folder][0]).parent / "args.txt").read()).bins
 
         for path in regions:
             if sub_sample:

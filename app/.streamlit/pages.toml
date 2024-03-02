@@ -1,7 +1,7 @@
 [[pages]]
 path = "nmf_train.py"
-name = "Train NMF segmentation"
+name = "Train NMF-Stain"
 
 [[pages]]
 path = "nmf_deploy.py"
-name = "Deploy NMF segmentation on new images"
+name = "Run NMF-Stain"
