@@ -253,6 +253,31 @@ def get_mask(visualization, segmentation_mask, x, y):
     result[mask == 0] = 0
     return result
     
+class ObjectsComparison:
+    def __init__(self, mz_image, segmentation_mask, visualization, start_mz=300, bins_per_mz=5):
+        self.mz_image = mz_image
+        self.segmentation_mask = segmentation_mask
+        self.visualization = visualization
+        self.start_mz = start_mz
+        self.bins_per_mz = bins_per_mz
+    
+    def compare_point(self, point, size=3):
+        x, y = point
+
+        
+        mask = np.zeros((self.mz_image.shape[0], self.mz_image.shape[1]), dtype=np.uint8)
+        mask = cv2.circle((mask, (x, y), size, 255, -1))
+        mask[y, x] = 0
+
+        values_a = self.mz_image[y, x]
+        values_b = self.mz_image[mask > 0]
+
+        
+
+
+
+
+        
 
 class RegionComparison:
     def __init__(self, mz_image, segmentation_mask, visualization, start_mz=300, bins_per_mz=5):
@@ -279,6 +304,29 @@ class RegionComparison:
             auc = roc_auc_score(labels, both[:, mz])
             aucs[mz] += auc
         return aucs
+
+    def compare_one_point(self, point, size=3):
+        x, y = point
+        x, y = int(x), int(y)
+        mask_b = np.zeros((self.mz_image.shape[0], self.mz_image.shape[1]), dtype=np.uint8)
+        mask_b = cv2.circle(mask_b, (x, y), size, 255, -1)
+        mask_b[y, x] = 0
+
+        mask_a = np.zeros((self.mz_image.shape[0], self.mz_image.shape[1]), dtype=np.uint8)
+        mask_a[y, x] = 255
+        aucs = self.ranking_comparison(mask_a, mask_b)
+        return aucs, mask_a, mask_b
+    
+    def visualize_object_comparison(self, point, size=3):
+        x, y = point
+        aucs, mask_a, mask_b = self.compare_one_point(point, size=size)
+        color_a = self.visualization[y, x]
+        color_b = np.int32([0, 0, 0])
+
+        image = self._create_auc_visualization(aucs, color_a, color_b)
+        return image
+
+
 
     def compare_two_points(self, point_a, point_b):
         x1, y1 = point_a

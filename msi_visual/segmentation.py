@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from visualizations import visualizations_from_explanations
+from msi_visual.visualizations import visualizations_from_explanations
 from matplotlib import pyplot as plt
 
 class SegmentationDataset:
