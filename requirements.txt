@@ -4,3 +4,7 @@ scipy
 opencv-python
 numpy
 matplotlib
+cmapy
+streamlit
+streamlit-image-coordinates
+st-pages
