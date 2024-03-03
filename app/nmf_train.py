@@ -7,6 +7,7 @@ import numpy as np
 import joblib
 from pathlib import Path
 from msi_visual import nmf_segmentation
+from argparse import Nemspace
 from PIL import Image
 from st_pages import show_pages_from_config, add_page_title
 
@@ -38,7 +39,7 @@ if start:
     if start_mz is not None:
         start_bin = int(st.session_state.bins * (start_mz - 300))
     else:
-        start_bin = 0
+        start_bin = 300
     
     if end_mz is not None:
         end_bin = int(st.session_state.bins * (end_mz - 300))
