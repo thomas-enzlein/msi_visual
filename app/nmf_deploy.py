@@ -32,12 +32,17 @@ if 'run_id' not in st.session_state:
 if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
-model_path = None
+
+model_path, model_name = None, None
+
 with st.sidebar:
     model_folder = st.text_input("Model folder")
     if model_folder:
-        model_path = st.selectbox('Segmentation model path', list(glob.glob(model_folder + "\\*.joblib")) + list(glob.glob(model_folder + "\\*\\*.joblib")) )
-    
+        model_paths = list(glob.glob(model_folder + "\\*.joblib")) \
+            + list(glob.glob(model_folder + "\\*\\*.joblib"))
+        model_display_paths = [Path(p).stem for p in model_paths]
+        model_name = st.selectbox('Segmentation model path', model_display_paths)
+
     sub_sample = st.number_input('Subsample pixels', value=None)
     colorschemes = list(colormaps)
     color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
@@ -52,7 +57,8 @@ with st.sidebar:
     objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])
     
 
-if model_path:
+if model_name:
+    model_path = [p for p in model_paths if Path(p).stem == model_name][0]
     seg = joblib.load(open(model_path, 'rb'))
 
 start = st.button("Run")
