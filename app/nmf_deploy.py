@@ -32,8 +32,12 @@ if 'run_id' not in st.session_state:
 if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
+model_path = None
 with st.sidebar:
-    model_path = st.selectbox('Segmentation model path', list(glob.glob("../models/*.joblib")))
+    model_folder = st.text_input("Model folder")
+    if model_folder:
+        model_path = st.selectbox('Segmentation model path', list(glob.glob(model_folder + "\\*.joblib")) + list(glob.glob(model_folder + "\\*\\*.joblib")) )
+    
     sub_sample = st.number_input('Subsample pixels', value=None)
     colorschemes = list(colormaps)
     color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))

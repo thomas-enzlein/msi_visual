@@ -7,7 +7,7 @@ import numpy as np
 import joblib
 from pathlib import Path
 from msi_visual import nmf_segmentation
-from argparse import Nemspace
+from argparse import Namespace
 from PIL import Image
 from st_pages import show_pages_from_config, add_page_title
 
