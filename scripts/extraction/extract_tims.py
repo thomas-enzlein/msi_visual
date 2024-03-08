@@ -12,10 +12,11 @@ import math
 import os
 from multiprocessing import Pool
 import argparse
-import time
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--start_mz', type=int, default=300)
+    parser.add_argument('--end_mz', type=int, default=1350)
     parser.add_argument('--input_path', type=str, required=True,
                         help='.d folder')
     parser.add_argument('--output_path', type=str, required=True,
@@ -85,9 +86,7 @@ def get_image(
     for index, (x, y) in tqdm.tqdm(enumerate(zip(xs, ys)), total=len(xs)):
         frame_id = start_index+index+1
 
-        t0 = time.time()
         q = conn.execute("SELECT NumScans FROM Frames WHERE Id={0}".format(frame_id))
-        t1=time.time()
         num_scans = q.fetchone()[0]
         mzs, intensities = [], []
 
@@ -98,7 +97,7 @@ def get_image(
             intensity = scan[1]
             mzs.extend(list(mz))
             intensities.extend(list(intensity))
-        t2=time.time()
+        
         if tol:
             for mz, intensity in zip(mzs, intensities):
                 min_i, max_i = _bisect_spectrum(mzs * bins_per_mz, min_mz * bins_per_mz + mz, tol=tol * bins_per_mz)
@@ -109,11 +108,7 @@ def get_image(
             intensities = np.float32(intensities)
             bins = np.int32(np.round((np.float32(mzs) - min_mz) * bins_per_mz))
             img[y, x, bins] = img[y, x, bins] + intensities
-            # for mz, intensity in zip(mzs, intensities):
-            #     img[y, x, round((mz - min_mz) * bins_per_mz)] += intensity
 
-        t3=time.time()
-        #print("took", t3-t2, t2-t1, t1-t0)
     np.save(output_path, img)
 
 
@@ -145,8 +140,8 @@ if __name__ == "__main__":
              output_path,
              f"{region}.npy"),
             region,
-            300,
-            1350,
+            args.start_mz,
+            args.end_mz,
             args.tol,
             args.bins) for region in regions]
     print(extraction_args)

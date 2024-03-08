@@ -69,7 +69,10 @@ if start:
         st.session_state.results = None
         st.session_state.difference_visualizations = None
 
-        st.session_state.bins = eval(open(Path(paths[folder][0]).parent / "args.txt").read()).bins
+        extraction_args = eval(open(Path(paths[folder][0]).parent / "args.txt").read())
+        st.session_state.bins = extraction_args.bins
+        st.session_state.extraction_start_mz = extraction_args.start_mz
+        st.session_state.extraction_end_mz = extraction_args.end_mz
 
         for path in regions:
             if sub_sample:
@@ -145,7 +148,11 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
                         st.session_state['difference_visualizations'] = {}
 
                     if image_to_show not in st.session_state.difference_visualizations:
-                        diff = visualizations.RegionComparison(mz_image, segmentation_mask, visualization, start_mz=300, bins_per_mz=st.session_state.bins)
+                        diff = visualizations.RegionComparison(mz_image,
+                                                               segmentation_mask,
+                                                               visualization,
+                                                               start_mz=st.session_state.extraction_start_mz,
+                                                               bins_per_mz=st.session_state.bins)
                         st.session_state.difference_visualizations[image_to_show] = diff
                     else:
                         diff = st.session_state.difference_visualizations[image_to_show]
@@ -167,5 +174,5 @@ if image_to_show:
     mz = st.text_input('Create ION image for m/z:')
     if mz:
         mz_image = st.session_state.results[image_to_show]["mz_image"]
-        val = int( (float(mz)-300) * st.session_state.bins)
+        val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
         st.image(visualizations.create_ion_image(mz_image, val))

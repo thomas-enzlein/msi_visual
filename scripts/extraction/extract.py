@@ -16,6 +16,8 @@ import argparse
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--start_mz', type=int, default=300)
+    parser.add_argument('--end_mz', type=int, default=1300)
     parser.add_argument('--input_path', type=str, required=True,
                         help='.d folder')
     parser.add_argument('--output_path', type=str, required=True,
@@ -87,9 +89,9 @@ def get_image(
         mzs = tsf.indexToMz(start_index + index + 1, indices)
 
         if tol is None:
-            for mz, intensity in zip(mzs, intensities):
-                
-                img[y, x, round((mz - min_mz) * bins_per_mz)] += intensity
+            intensities = np.float32(intensities)
+            bins = np.int32(np.round((np.float32(mzs) - min_mz) * bins_per_mz))
+            img[y, x, bins] = img[y, x, bins] + intensities
         else:
             for mz in range(bins_per_mz * num_mzs):
                 min_i, max_i = _bisect_spectrum(
@@ -128,8 +130,8 @@ if __name__ == "__main__":
              output_path,
              f"{region}.npy"),
             region,
-            300,
-            1350,
+            args.start_mz,
+            args.end_mz,
             args.tol,
             args.bins) for region in regions]
     print(extraction_args)

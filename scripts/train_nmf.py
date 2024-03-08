@@ -34,10 +34,13 @@ def get_args():
 
 args = get_args()
 
-bins = eval(open(Path(args.input_path) / "args.txt").read()).bins
-start_bin = int((args.start_mz - 300)*bins)
+extraction_args = eval(open(Path(args.input_path) / "args.txt").read())
+bins = extraction_args.bins
+extraction_start_mz = extraction_args.start_mz
+
+start_bin = int((args.start_mz - extraction_start_mz)*bins)
 if args.end_mz is not None:
-    end_bin = int((args.end_mz-300)*bins)
+    end_bin = int((args.end_mz-extraction_start_mz)*bins)
 else:
     end_bin = None
 

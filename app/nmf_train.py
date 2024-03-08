@@ -37,12 +37,12 @@ with st.sidebar:
 start = st.button("Train NMF segmentation")
 if start:
     if start_mz is not None:
-        start_bin = int(st.session_state.bins * (start_mz - 300))
+        start_bin = int(st.session_state.bins * (start_mz - st.session_state.extraction_start_mz))
     else:
-        start_bin = 300
+        start_bin = st.session_state.extraction_start_mz
     
     if end_mz is not None:
-        end_bin = int(st.session_state.bins * (end_mz - 300))
+        end_bin = int(st.session_state.bins * (end_mz - st.session_state.extraction_start_mz))
     else:
         end_bin = None
 
@@ -54,7 +54,10 @@ if start:
         images = [np.load(p) for p in regions]
     
     with st.spinner(text="Training NMF segmentation.."):
-        st.session_state.bins = eval(open(Path(paths[folder][0]).parent / "args.txt").read()).bins
+        extraction_args = eval(open(Path(paths[folder][0]).parent / "args.txt").read())
+        st.session_state.bins = extraction_args.bins
+        st.session_state.extraction_start_mz = extraction_args.start_mz
+        st.session_state.extraction_end_mz = extraction_args.end_mz
         seg.fit(images)
 
     joblib.dump(seg, output_path)
