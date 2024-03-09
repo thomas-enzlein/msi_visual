@@ -18,11 +18,14 @@ importlib.reload(msi_visual)
 from msi_visual import nmf_segmentation
 from msi_visual import visualizations
 from msi_visual import objects
+from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
+    get_files_from_folder
 
 importlib.reload(visualizations)
 
-paths = json.load(open(sys.argv[1]))
-st.title('NMF-Stain visualization for MSI')
+extraction_folders = json.load(open(sys.argv[1]))
+extraction_folders = display_paths_to_extraction_paths(extraction_folders)
+
 results = {}
 image_to_show = []
 
@@ -46,9 +49,12 @@ with st.sidebar:
     sub_sample = st.number_input('Subsample pixels', value=None)
     colorschemes = list(colormaps)
     color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
-    folder = st.selectbox('Extration folder', paths.keys())
-    if folder:
-        regions = st.multiselect('Regions to include', paths[folder])
+    
+    
+    selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
+    if selected_extraction:
+        extraction_folder = extraction_folders[selected_extraction]
+        regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
 
     if 'results' in st.session_state:
         image_to_show = st.selectbox('Image to show', list(st.session_state.results.keys()), key = st.session_state.run_id)
@@ -69,7 +75,7 @@ if start:
         st.session_state.results = None
         st.session_state.difference_visualizations = None
 
-        extraction_args = eval(open(Path(paths[folder][0]).parent / "args.txt").read())
+        extraction_args = eval(open(Path(extraction_folder) / "args.txt").read())
         st.session_state.bins = extraction_args.bins
         st.session_state.extraction_start_mz = extraction_args.start_mz
         st.session_state.extraction_end_mz = extraction_args.end_mz

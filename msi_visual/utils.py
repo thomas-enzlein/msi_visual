@@ -1,8 +1,9 @@
 import numpy as np
 from sklearn.decomposition import non_negative_factorization
-from visualizations import get_colors, visualizations_from_explanations
 from matplotlib import pyplot as plt
 from collections import defaultdict
+
+from msi_visual.visualizations import get_colors, visualizations_from_explanations
 
 def brain_nmf_semantic_segmentation(img_path_for_segmentation: str, H_path: str = "h_cosegmentation.npy", NUM_COMPONENTS:int = 5) -> np.ndarray:
     colors_for_components = get_colors(NUM_COMPONENTS)
