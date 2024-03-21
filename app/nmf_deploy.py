@@ -1,8 +1,10 @@
 import streamlit as st
 import glob
 import os
+import datetime
 import json
 import sys
+from PIL import Image
 import numpy as np
 import joblib
 from matplotlib import colormaps
@@ -20,7 +22,8 @@ from msi_visual import visualizations
 from msi_visual import objects
 from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
     get_files_from_folder
-
+from msi_visual import parametric_umap
+from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
 
 extraction_folders = json.load(open(sys.argv[1]))
@@ -36,20 +39,18 @@ if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
 
-model_path, model_name = None, None
+umap_model_folder, nmf_model_path, nmf_model_name = None, None, None
 
 with st.sidebar:
-    model_folder = st.text_input("Model folder")
-    if model_folder:
-        model_paths = list(glob.glob(model_folder + "\\*.joblib")) \
-            + list(glob.glob(model_folder + "\\*\\*.joblib"))
-        model_display_paths = [Path(p).stem for p in model_paths]
-        model_name = st.selectbox('Segmentation model path', model_display_paths)
+    nmf_model_folder = st.text_input("Model folder")
+    umap_model_folder = st.text_input("UMAP Model folder (optional)")
+    if nmf_model_folder:
+        nmf_model_paths = list(glob.glob(nmf_model_folder + "\\*.joblib")) \
+            + list(glob.glob(nmf_model_folder + "\\*\\*.joblib"))
+        nmf_model_display_paths = [Path(p).stem for p in nmf_model_paths]
+        nmf_model_name = st.selectbox('Segmentation model path', nmf_model_display_paths)
 
     sub_sample = st.number_input('Subsample pixels', value=None)
-    colorschemes = list(colormaps)
-    color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
-    
     
     selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
     if selected_extraction:
@@ -63,18 +64,55 @@ with st.sidebar:
     objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])
     
 
-if model_name:
-    model_path = [p for p in model_paths if Path(p).stem == model_name][0]
-    seg = joblib.load(open(model_path, 'rb'))
+if nmf_model_name:
+    nmf_model_path = [p for p in nmf_model_paths if Path(p).stem == nmf_model_name][0]
+    nmf = joblib.load(open(nmf_model_path, 'rb'))
+
+if umap_model_folder:
+    umap = parametric_umap.UMAPVirtualStain()
+    umap.load(umap_model_folder)        
+    seg_umap = SegmentationUMAPVisualization(umap, nmf)
+
+with st.sidebar:
+    colorschemes = list(colormaps)
+    default_colors = ["hsv", "gist_rainbow", "RdGy", "seismic"] * 100
+    if umap_model_folder:
+        color_scheme_per_region = []
+        for i in range(nmf.k):
+            color_scheme_per_region.append(
+                st.selectbox(f"Color Scheme {i}",
+                            colorschemes, index = colorschemes.index(default_colors[i])))
+    else:
+        color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
+
 
 start = st.button("Run")
+save = st.button("Save")
+
+if save:
+    if image_to_show:
+        folder = datetime.datetime.today().strftime('%Y-%m-%d')
+        os.makedirs(folder, exist_ok=True)
+        img, visualization, label_a, label_b = st.session_state.latest_diff
+        image_name = Path(image_to_show).stem
+        if umap_model_folder:
+            prefix="umap"
+        else:
+            prefix="nmf"
+        Image.fromarray(img).save(Path(folder) / f"{image_name}_{label_a}_{label_b}_{prefix}.png")
+        Image.fromarray(visualization).save(Path(folder) / f"{image_name}_{prefix}.png")
+        
+        if 'latest_heatmaps' in st.session_state:
+            for index, heatmap in enumerate(st.session_state.latest_heatmaps):
+                Image.fromarray(heatmap).save(Path(folder) / f"{image_name}_{[label_a, label_b][index]}_{prefix}_mask.png")
+    
+
 if start:
     st.session_state.run_id = st.session_state.run_id + 1
     with st.spinner(text="Running NMF segmentation.."):
         st.session_state.coordinates = None
         st.session_state.results = None
         st.session_state.difference_visualizations = None
-
         extraction_args = eval(open(Path(extraction_folder) / "args.txt").read())
         st.session_state.bins = extraction_args.bins
         st.session_state.extraction_start_mz = extraction_args.start_mz
@@ -87,11 +125,14 @@ if start:
                 img = np.load(path)
             img = np.float32(img)
 
-            contributions = seg.factorize(img)
-            results[path] = {"mz_image": img, "contributions": contributions}
+            if umap_model_folder:
+                contributions = seg_umap.factorize(img)
+            else:
+                contributions = nmf.factorize(img)
+
+            results[path] = {"mz_image": img, "data_for_visualization": contributions}
         
         st.session_state.results = results
-        st.session_state.color_scheme = color_scheme
 
     with st.sidebar:
         image_to_show = st.selectbox('Image to show', list(st.session_state.results.keys()), key = st.session_state.run_id)
@@ -101,11 +142,19 @@ if 'coordinates' not in st.session_state or st.session_state.coordinates is None
 
 if 'results' in st.session_state:
     for path, data in st.session_state.results.items():
-        img, contributions = data["mz_image"], data["contributions"]
+        img, data_for_visualization = data["mz_image"], data["data_for_visualization"]
         if path in image_to_show:
-            segmentation_mask, visualization = seg.visualize_factorization(img, contributions, color_scheme)
-            segmentation_mask = segmentation_mask.argmax(axis=0)
-            segmentation_mask[img.max(axis=-1) == 0] = -1
+
+            if umap_model_folder:
+                segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
+                                                                                    color_scheme_per_region)
+            else:
+                segmentation_mask, visualization = nmf.visualize_factorization(img, data_for_visualization, color_scheme)
+
+            if len(segmentation_mask.shape) > 2:
+                segmentation_mask = segmentation_mask.argmax(axis=0)
+                print(img.shape, segmentation_mask.shape)
+                segmentation_mask[img.max(axis=-1) == 0] = -1
 
             if objects_mode:
                 with st.spinner(text="Detecting objects.."):
@@ -140,6 +189,7 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
         x, y = int(point['x']), int(point['y'])
         heatmap = visualizations.get_mask(visualization, segmentation_mask, x, y)
         images.append(heatmap)
+    st.session_state.latest_heatmaps = images
     with st.container():
         for index, col in enumerate(st.columns(len(images))):
             col.image(images[index])
@@ -167,14 +217,16 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
                         point = st.session_state.coordinates[image_to_show][-1][0]
                         point = int(point['x']), int(point['y'])
                         image = diff.visualize_object_comparison(point, size=objects_window)
+                        label_a, label_b = None, None
                         st.image(image)
                     else:
                         point_a = st.session_state.coordinates[image_to_show][0][0]
                         point_a = int(point_a['x']), int(point_a['y'])
                         point_b = st.session_state.coordinates[image_to_show][1][0]
                         point_b = int(point_b['x']), int(point_b['y'])
-                        image = diff.visualize_comparison_between_points(point_a, point_b)
+                        image, label_a, label_b = diff.visualize_comparison_between_points(point_a, point_b)
                         st.image(image)
+                    st.session_state.latest_diff = (image, visualization, label_a, label_b)
 
 if image_to_show:
     mz = st.text_input('Create ION image for m/z:')

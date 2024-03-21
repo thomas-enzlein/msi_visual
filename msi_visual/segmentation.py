@@ -69,7 +69,7 @@ def get_visualization(img, output):
 
 class DeepLearningSegmentation:
     def __init__(self, model_path="models/segmentation.pth", number_of_categories=4):
-        self.model = load_model()
+        self.model = load_model(model_path)
         self.number_of_categories = number_of_categories
         if torch.cuda.is_available():
             self.model = self.model.cuda()

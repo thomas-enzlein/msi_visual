@@ -263,21 +263,12 @@ class ObjectsComparison:
     
     def compare_point(self, point, size=3):
         x, y = point
-
-        
         mask = np.zeros((self.mz_image.shape[0], self.mz_image.shape[1]), dtype=np.uint8)
         mask = cv2.circle((mask, (x, y), size, 255, -1))
         mask[y, x] = 0
 
         values_a = self.mz_image[y, x]
         values_b = self.mz_image[mask > 0]
-
-        
-
-
-
-
-        
 
 class RegionComparison:
     def __init__(self, mz_image, segmentation_mask, visualization, start_mz=300, bins_per_mz=5):
@@ -326,14 +317,12 @@ class RegionComparison:
         image = self._create_auc_visualization(aucs, color_a, color_b)
         return image
 
-
-
     def compare_two_points(self, point_a, point_b):
         x1, y1 = point_a
         x2, y2 = point_b
         label_a = self.segmentation_mask[y1, x1]
         label_b = self.segmentation_mask[y2, x2]
-        return self.compare_two_labels(label_a, label_b)
+        return self.compare_two_labels(label_a, label_b), label_a, label_b
 
     @lru_cache()
     def compare_two_labels(self, label_a, label_b):
@@ -343,13 +332,13 @@ class RegionComparison:
         return aucs, mask_a, mask_b
 
     def visualize_comparison_between_points(self, point_a, point_b):
-        aucs, mask_a, mask_b = self.compare_two_points(point_a, point_b)
+        (aucs, mask_a, mask_b), label_a, label_b = self.compare_two_points(point_a, point_b)
         color_a = self.visualization[mask_a > 0]
         color_a = color_a.mean(axis=0)
         color_b = self.visualization[mask_b > 0].mean(axis=0)
 
         image = self._create_auc_visualization(aucs, color_a, color_b)
-        return image
+        return image, label_a, label_b
 
     def _create_auc_visualization(self, aucs, color_a, color_b):
         combination = np.hstack((color_a * np.ones((100, 100, 3), dtype=np.uint8), color_b * np.ones((100, 100, 3), dtype=np.uint8)))
@@ -401,72 +390,4 @@ class RegionComparison:
         cells = np.hstack(cells)
         cells = np.hstack((combination, cells))        
         return cells
-
-
-
-
-
-    # def ranking_comparison(self, point_a, point_b):
-    #     x1, y1 = point_a
-    #     x2, y2 = point_b
-
-        
-        
-
-
-
-# def get_(region_gray_image, digitized, bins, top_mzs, color_scheme):
-#     rows = []
-#     for i, j in top_mzs:
-#         color_b = cv2.applyColorMap(np.uint8(np.ones((100, 100)) * region_gray_image[digitized == bins[j]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
-#         color_a = cv2.applyColorMap(np.uint8(np.ones((100, 100)) * region_gray_image[digitized == bins[i]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
-#         combination = np.hstack((color_a, color_b))
-#         cells = []
-#         top_pos_auc = {k: v for k, v in sorted(top_mzs[i, j].items(), key=lambda item: item[1])[::-1][:10]}
-#         top_mzs_from_both = {}
-#         top_neg_auc = {k: v for k, v in sorted(top_mzs[i, j].items(), key=lambda item: -item[1])[::-1][:10]}
-
-#         for k, v in top_neg_auc.items():
-#             if v < 0:
-#                 top_mzs_from_both[k] = v
-
-#         for k, v in top_pos_auc.items():
-#             if v > 0:
-#                 top_mzs_from_both[k] = v
-
-#         for mz, auc in top_mzs_from_both.items():
-#             if abs(auc) < 0.7:
-#                 continue
-#             mz = 300 + mz/5
-#             cell = np.ones((100, 100, 3), dtype=np.uint8) * 255
-
-#             if auc > 0:
-#                 icon = cv2.applyColorMap(np.uint8(np.ones((8, 8)) * region_gray_image[digitized == bins[j]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
-#             else:
-#                 icon = cv2.applyColorMap(np.uint8(np.ones((8, 8)) * region_gray_image[digitized == bins[i]].mean()), cmapy.cmap(color_scheme))[:, :, ::-1]
-            
-#             cell[20 : 20 + icon.shape[0], 10 : 10 + icon.shape[1] , : ] = icon
-
-#             font = cv2.FONT_HERSHEY_SIMPLEX
-#             bottomLeftCornerOfText = (10,50)
-#             fontScale              = 0.5
-#             fontColor              = (0,0,00)
-#             thickness              = 1
-#             lineType               = 1
-#             cell = cv2.putText(cell, f"{mz:.3f}",
-#                 bottomLeftCornerOfText, 
-#                 font, 
-#                 fontScale,
-#                 fontColor,
-#                 thickness,
-#                 lineType) 
-#             cells.append(cell)
-#         if len(cells) < 20:
-#             for _ in range(20 - len(cells)):
-#                 cells.append(np.ones((100, 100, 3), dtype=np.uint8) * 255)
-
-#         cells = np.hstack(cells)
-#         cells = np.hstack((combination, cells))
-#         rows.append(cells)
-#     rows = np.vstack(rows)
-#     return rows
+    

@@ -32,7 +32,7 @@ def brain_nmf_semantic_segmentation_highres(img_path_for_segmentation: str, H_pa
 
 import numpy as np
 
-def normalize_image_grayscale(grayscale, low_percentile: int = 0.1, high_percentile: int = 99.9):
+def normalize_image_grayscale(grayscale, low_percentile: int = 0.1, high_percentile: int = 99):
     a = grayscale.copy()
     low = np.percentile(a[:], low_percentile)
     a = (a - low) 

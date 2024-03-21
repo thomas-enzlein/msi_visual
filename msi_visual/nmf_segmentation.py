@@ -17,6 +17,9 @@ class NMFSegmentation:
         self.max_iter = max_iter
         
     def fit(self, images):
+        if self.end_bin is None:
+            self.end_bin = images[0].shape[-1]
+
         vector = np.concatenate([self.normalization(img[:, :, self.start_bin:self.end_bin]).reshape(-1, images[0][:, :, self.start_bin:self.end_bin].shape[-1]) for img in images], axis=0)
         vector = vector.reshape((-1, vector.shape[-1]))
         self.model = NMF(n_components=self.k, init='random', random_state=0, max_iter=self.max_iter)
@@ -57,7 +60,6 @@ class NMFSegmentation:
         spatial_sum_visualization, global_percentile_visualization, normalized_sum, normalized_percentile = visualizations_from_explanations(img, contributions, self.get_colors(color_scheme))
         return normalized_sum, spatial_sum_visualization
 
-
     def predict(self, img, color_scheme='gist_rainbow'):
         contributions = self.factorize(img)
-        return self.visualize_factorization(img, contributions, color_scheme)    
+        return self.visualize_factorization(img, contributions, color_scheme)
