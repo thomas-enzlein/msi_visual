@@ -26,8 +26,6 @@ from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
 
-extraction_folders = json.load(open(sys.argv[1]))
-extraction_folders = display_paths_to_extraction_paths(extraction_folders)
 
 results = {}
 image_to_show = []
@@ -42,6 +40,15 @@ if 'bins' not in st.session_state:
 umap_model_folder, nmf_model_path, nmf_model_name = None, None, None
 
 with st.sidebar:
+    extraction_root_folder = st.text_input("Extraction Root Folder")
+    if extraction_root_folder:
+        extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
+
+        selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
+        if selected_extraction:
+            extraction_folder = extraction_folders[selected_extraction]
+            regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
+
     nmf_model_folder = st.text_input("Model folder")
     umap_model_folder = st.text_input("UMAP Model folder (optional)")
     if nmf_model_folder:
@@ -51,17 +58,13 @@ with st.sidebar:
         nmf_model_name = st.selectbox('Segmentation model path', nmf_model_display_paths)
 
     sub_sample = st.number_input('Subsample pixels', value=None)
-    
-    selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
-    if selected_extraction:
-        extraction_folder = extraction_folders[selected_extraction]
-        regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
 
     if 'results' in st.session_state:
         image_to_show = st.selectbox('Image to show', list(st.session_state.results.keys()), key = st.session_state.run_id)
     
-    objects_mode = st.checkbox('Objects mode')
-    objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])
+    #objects_mode = st.checkbox('Objects mode')
+    #objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])
+    objects_mode = False
     
 
 if nmf_model_name:

@@ -32,23 +32,24 @@ add_page_title()
 
 show_pages_from_config()
 
-extraction_folders = json.load(open(sys.argv[1]))
-extraction_folders = display_paths_to_extraction_paths(extraction_folders)
 
 if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
 with st.sidebar:
+    extraction_root_folder = st.text_input("Extraction Root Folder")
+    if extraction_root_folder:
+        extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
 
-    selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
-    if selected_extraction:
-        extraction_folder = extraction_folders[selected_extraction]
-        regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
+        selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
+        if selected_extraction:
+            extraction_folder = extraction_folders[selected_extraction]
+            regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
 
-        extraction_args = eval(open(Path(extraction_folder) / "args.txt").read())
-        st.session_state.bins = extraction_args.bins
-        st.session_state.extraction_start_mz = extraction_args.start_mz
-        st.session_state.extraction_end_mz = extraction_args.end_mz
+            extraction_args = eval(open(Path(extraction_folder) / "args.txt").read())
+            st.session_state.bins = extraction_args.bins
+            st.session_state.extraction_start_mz = extraction_args.start_mz
+            st.session_state.extraction_end_mz = extraction_args.end_mz
 
     start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz)
     end_mz = st.number_input('End m/z', value=None)

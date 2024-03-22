@@ -19,26 +19,25 @@ from msi_visual.app_utils.extraction_info import display_paths_to_extraction_pat
 add_page_title()
 
 show_pages_from_config()
-
-extraction_folders = json.load(open(sys.argv[1]))
-extraction_folders = display_paths_to_extraction_paths(extraction_folders)
-
 if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
 
 with st.sidebar:
+    extraction_root_folder = st.text_input("Extraction Root Folder")
+    if extraction_root_folder:
+        extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
+
+        selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
+        if selected_extraction:
+            extraction_folder = extraction_folders[selected_extraction]
+            regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
+
     number_of_components = st.number_input('Number of components',  min_value=2, max_value=1000, value=10, step=1)
     start_mz = st.number_input('Start m/z', 0)
     end_mz = st.number_input('End m/z', value=None)
     output_path = st.text_input('Output path for segmentation model', 'models/nmf_model.joblib')
     sub_sample = st.number_input('Subsample pixels', value=None)
-
-    selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
-    if selected_extraction:
-        extraction_folder = extraction_folders[selected_extraction]
-        regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
-
 
 start = st.button("Train NMF segmentation")
 if start:
