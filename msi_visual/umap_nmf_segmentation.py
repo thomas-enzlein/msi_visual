@@ -59,4 +59,4 @@ class SegmentationUMAPVisualization:
         
         visualizations = np.array(visualizations)
         visualizations = visualizations.max(axis=0)
-        return sub_segmentation, visualizations
+        return segmentation, sub_segmentation, visualizations

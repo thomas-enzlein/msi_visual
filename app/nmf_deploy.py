@@ -29,13 +29,13 @@ importlib.reload(visualizations)
 
 results = {}
 image_to_show = []
-
 if 'run_id' not in st.session_state:
     st.session_state.run_id = 0
-
 if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
+if 'color_schemes' not in st.session_state:
+    st.session_state.color_schemes = ["hsv", "gist_rainbow", "RdGy", "seismic"] * 100
 
 umap_model_folder, nmf_model_path, nmf_model_name = None, None, None
 
@@ -48,7 +48,9 @@ with st.sidebar:
         if selected_extraction:
             extraction_folder = extraction_folders[selected_extraction]
             regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
-
+    
+    st.divider()
+    
     nmf_model_folder = st.text_input("Model folder")
     umap_model_folder = st.text_input("UMAP Model folder (optional)")
     if nmf_model_folder:
@@ -77,17 +79,19 @@ if umap_model_folder:
     seg_umap = SegmentationUMAPVisualization(umap, nmf)
 
 with st.sidebar:
+    st.divider()
     colorschemes = list(colormaps)
     default_colors = ["hsv", "gist_rainbow", "RdGy", "seismic"] * 100
     if umap_model_folder:
-        color_scheme_per_region = []
-        for i in range(nmf.k):
-            color_scheme_per_region.append(
-                st.selectbox(f"Color Scheme {i}",
-                            colorschemes, index = colorschemes.index(default_colors[i])))
+        region_selectbox = st.selectbox(f"Region to control", [i for i in range(nmf.k)], index=0)
+        
+        region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index=colorschemes.index(st.session_state.color_schemes[int(region_selectbox)]))
+        st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
+
+        current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
     else:
         color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
-
+        current_color_scheme = color_scheme
 
 start = st.button("Run")
 save = st.button("Save")
@@ -102,6 +106,8 @@ if save:
             prefix="umap"
         else:
             prefix="nmf"
+        now = datetime.datetime.now()
+        prefix = prefix + "_ " + now.strftime("%H_%M_%S")
         Image.fromarray(img).save(Path(folder) / f"{image_name}_{label_a}_{label_b}_{prefix}.png")
         Image.fromarray(visualization).save(Path(folder) / f"{image_name}_{prefix}.png")
         
@@ -149,14 +155,14 @@ if 'results' in st.session_state:
         if path in image_to_show:
 
             if umap_model_folder:
-                segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
-                                                                                    color_scheme_per_region)
+                nmf_segmentation_mask, segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
+                                                                                    st.session_state.color_schemes)
+                st.session_state.results[path]["nmf_segmentation_mask"] = nmf_segmentation_mask
             else:
                 segmentation_mask, visualization = nmf.visualize_factorization(img, data_for_visualization, color_scheme)
 
             if len(segmentation_mask.shape) > 2:
                 segmentation_mask = segmentation_mask.argmax(axis=0)
-                print(img.shape, segmentation_mask.shape)
                 segmentation_mask[img.max(axis=-1) == 0] = -1
 
             if objects_mode:
@@ -179,16 +185,25 @@ if 'results' in st.session_state:
             st.session_state.results[path]["segmentation_mask"] = segmentation_mask
             st.session_state.results[path]["visualization"] = visualization
             point = streamlit_image_coordinates(visualization)
+
+            if umap_model_folder:
+                region_visualization = st.session_state.results[path]["visualization"].copy()
+                mask = st.session_state.results[path]["nmf_segmentation_mask"] == int(region_selectbox)
+                region_visualization[mask == 0] = 0
+                st.image(region_visualization)
+
             if point is not None:
-                if path in st.session_state.coordinates and point in [p[0] for p in st.session_state.coordinates[path]]:
+                if path in st.session_state.coordinates and point in [p for p in st.session_state.coordinates[path]]:
                     pass
                 else:
-                    st.session_state.coordinates[path].append((point, segmentation_mask, visualization))
+                    st.session_state.coordinates[path].append(point)
                     st.session_state.coordinates[path] = st.session_state.coordinates[path][-2 : ]
 
 if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
     images = []
-    for point, segmentation_mask, visualization in st.session_state.coordinates[image_to_show]:
+    segmentation_mask = st.session_state.results[path]["segmentation_mask"]
+    visualization = st.session_state.results[path]["visualization"]
+    for point in st.session_state.coordinates[image_to_show]:
         x, y = int(point['x']), int(point['y'])
         heatmap = visualizations.get_mask(visualization, segmentation_mask, x, y)
         images.append(heatmap)
@@ -206,7 +221,10 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
                     if 'difference_visualizations' not in st.session_state or st.session_state.difference_visualizations is None:
                         st.session_state['difference_visualizations'] = {}
 
-                    if image_to_show not in st.session_state.difference_visualizations:
+                    if 'current_color_scheme' not in st.session_state:
+                        st.session_state['current_color_scheme'] = current_color_scheme
+
+                    if image_to_show not in st.session_state.difference_visualizations or st.session_state['current_color_scheme'] != current_color_scheme:
                         diff = visualizations.RegionComparison(mz_image,
                                                                segmentation_mask,
                                                                visualization,
@@ -215,17 +233,19 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
                         st.session_state.difference_visualizations[image_to_show] = diff
                     else:
                         diff = st.session_state.difference_visualizations[image_to_show]
+
+                    st.session_state['current_color_scheme'] = current_color_scheme
                     
                     if objects_mode:
-                        point = st.session_state.coordinates[image_to_show][-1][0]
+                        point = st.session_state.coordinates[image_to_show][-1]
                         point = int(point['x']), int(point['y'])
                         image = diff.visualize_object_comparison(point, size=objects_window)
                         label_a, label_b = None, None
                         st.image(image)
                     else:
-                        point_a = st.session_state.coordinates[image_to_show][0][0]
+                        point_a = st.session_state.coordinates[image_to_show][0]
                         point_a = int(point_a['x']), int(point_a['y'])
-                        point_b = st.session_state.coordinates[image_to_show][1][0]
+                        point_b = st.session_state.coordinates[image_to_show][1]
                         point_b = int(point_b['x']), int(point_b['y'])
                         image, label_a, label_b = diff.visualize_comparison_between_points(point_a, point_b)
                         st.image(image)
