@@ -17,6 +17,7 @@ import argparse
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--start_mz', type=int, default=300)
+    parser.add_argument('--id', type=str, required=True)
     parser.add_argument('--end_mz', type=int, default=1300)
     parser.add_argument('--input_path', type=str, required=True,
                         help='.d folder')
