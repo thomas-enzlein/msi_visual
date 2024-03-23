@@ -99,7 +99,6 @@ def get_colors(number, colormap='gist_rainbow'):
 
 def visualizations_from_explanations(img, explanations, colors):
     normalized_by_spatial_sum = explanations / (1e-6 + explanations.sum(axis=(1, 2))[:, None, None])
-    #normalized_by_spatial_sum = explanations
     normalized_by_spatial_sum = normalized_by_spatial_sum / (1e-6 + np.percentile(normalized_by_spatial_sum, 99, axis=(1, 2) )[:, None, None])
     
 

@@ -26,12 +26,7 @@ from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
 
-def update_region_color():
-    if region_colorscheme and region_selectbox and colorschemes:
-        region_colorscheme.index=colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
-
-def save_to_cache(cache_path='deploy.cache'):
-    
+def save_to_cache(cache_path='deploy.cache'):    
     cache = {'Extraction Root Folder': extraction_root_folder,
      'Extration folder': selected_extraction,
      'Regions to include': regions,
@@ -101,7 +96,7 @@ with st.sidebar:
         nmf_model_name = st.selectbox('Segmentation model path', nmf_model_display_paths, index=default)
 
     umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
-
+    output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
     sub_sample = st.number_input('Subsample pixels', value=None)
 
     if 'results' in st.session_state:
@@ -131,7 +126,9 @@ with st.sidebar:
         if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
             default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
         region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index=default)
-        st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
+
+        if st.button('Update color scheme'):
+            st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
 
         current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
     else:
@@ -181,7 +178,7 @@ if start:
             img = np.float32(img)
 
             if umap_model_folder:
-                contributions = seg_umap.factorize(img)
+                contributions = seg_umap.factorize(img, method=output_normalization)
             else:
                 contributions = nmf.factorize(img)
 
@@ -199,10 +196,10 @@ if 'results' in st.session_state:
         if path in image_to_show:
             if umap_model_folder:
                 nmf_segmentation_mask, segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
-                                                                                    st.session_state.color_schemes)
+                                                                                    st.session_state.color_schemes, method=output_normalization)
                 st.session_state.results[path]["nmf_segmentation_mask"] = nmf_segmentation_mask
             else:
-                segmentation_mask, visualization = nmf.visualize_factorization(img, data_for_visualization, color_scheme)
+                segmentation_mask, visualization = nmf.visualize_factorization(img, data_for_visualization, color_scheme, method=output_normalization)
 
             if len(segmentation_mask.shape) > 2:
                 segmentation_mask = segmentation_mask.argmax(axis=0)
