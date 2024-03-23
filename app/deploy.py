@@ -80,6 +80,9 @@ with st.sidebar:
                 default=None
             else:
                 default = cached_state['Regions to include']
+                if False in [r in region_list for r in cached_state['Regions to include'] ]:
+                    default = None
+
             regions = st.multiselect('Regions to include', region_list,  default=default)
     
     st.divider()
