@@ -3,9 +3,9 @@ path = "seg_train.py"
 name = "Train NMF Virtual Staining"
 
 [[pages]]
-path = "deploy.py"
-name = "Run NMF-Stain"
-
-[[pages]]
 path = "umap_train.py"
 name = "Train UMAP Virtual Staining"
+
+[[pages]]
+path = "deploy.py"
+name = "Run Virtual Stain (NMF or Kmeans)"
