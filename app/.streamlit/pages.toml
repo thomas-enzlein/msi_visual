@@ -1,5 +1,5 @@
 [[pages]]
-path = "nmf_train.py"
+path = "seg_train.py"
 name = "Train NMF Virtual Staining"
 
 [[pages]]

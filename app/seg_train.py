@@ -10,7 +10,7 @@ from argparse import Namespace
 from PIL import Image
 from st_pages import show_pages_from_config, add_page_title
 
-from msi_visual import nmf_segmentation
+from msi_visual import nmf_segmentation, kmeans_segmentation
 from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
     get_files_from_folder
 
@@ -39,7 +39,9 @@ with st.sidebar:
     output_path = st.text_input('Output path for segmentation model', 'models/nmf_model.joblib')
     sub_sample = st.number_input('Subsample pixels', value=None)
 
-start = st.button("Train NMF segmentation")
+    model_type = st.selectbox("Model Type", ["NMF", "Kmeans"], index=0)
+
+start = st.button("Train segmentation")
 if start:
 
     extraction_args = eval(open(Path(extraction_folder) / "args.txt").read())
@@ -58,14 +60,17 @@ if start:
     else:
         end_bin = None
 
-    seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
+    if model_type == "NMF":
+        seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
+    else:
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
 
     if sub_sample:
         images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]
     else:
         images = [np.load(p) for p in regions]
     
-    with st.spinner(text="Training NMF segmentation.."):
+    with st.spinner(text="Training segmentation.."):
         seg.fit(images)
 
     joblib.dump(seg, output_path)

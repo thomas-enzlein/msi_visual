@@ -10,10 +10,11 @@ class SegmentationUMAPVisualization:
         self.umap_model = umap_model
         self.segmentation_model = segmentation_model
 
-    def factorize(self, img, number_of_bins_for_comparison=5):
+    def factorize(self, img, number_of_bins_for_comparison=5, method='spatial_norm'):
         umap_1d = self.umap_model.predict(img)[:, :, 0]
-        segmentation, _ = self.segmentation_model.predict(img)
-        segmentation = segmentation.argmax(axis=0)
+        segmentation,  _ = self.segmentation_model.predict(img, method=method)
+        if len(segmentation.shape) > 2:
+            segmentation = segmentation.argmax(axis=0)
     
         regions = np.unique(segmentation)
         num_regions = len(regions)
@@ -34,13 +35,11 @@ class SegmentationUMAPVisualization:
             bins = np.linspace(0, 1, number_of_bins_for_comparison)
 
             digitized = np.digitize(region_umap, bins)
-            print("digitized", len(np.unique(digitized)), np.unique(digitized))
             sub_segmentation[region_mask > 0] = digitized[region_mask > 0] + (number_of_bins_for_comparison + 2) * region
-        print(sub_segmentation, np.unique(sub_segmentation))
         return segmentation, sub_segmentation, region_umaps
 
 
-    def visualize_factorization(self, img, data_for_visualization, color_scheme_per_region):
+    def visualize_factorization(self, img, data_for_visualization, color_scheme_per_region, method='spatial_norm'):
         segmentation, sub_segmentation, region_umaps = data_for_visualization
         regions = np.unique(segmentation)
         # Create the colorful image
