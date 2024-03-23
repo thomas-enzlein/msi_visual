@@ -1,10 +1,10 @@
 [[pages]]
 path = "seg_train.py"
-name = "Train NMF Virtual Staining"
+name = "Train NMF or Kmeans"
 
 [[pages]]
 path = "umap_train.py"
-name = "Train UMAP Virtual Staining"
+name = "Train UMAP"
 
 [[pages]]
 path = "deploy.py"
