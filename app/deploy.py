@@ -26,38 +26,76 @@ from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
 
+def save_to_cache(cache_path='deploy.cache'):
+    
+    cache = {'Extraction Root Folder': extraction_root_folder,
+     'Extration folder': selected_extraction,
+     'Regions to include': regions,
+     'Model folder': nmf_model_folder,
+     'UMAP Model folder (optional)': umap_model_folder,
+     'Segmentation model path': nmf_model_name,
+     'color_schemes': st.session_state.color_schemes}
+    
+    joblib.dump(cache, cache_path)
+
+if os.path.exists("deploy.cache"):
+    state = joblib.load("deploy.cache")
+    cached_state = defaultdict(str)
+    for k, v in state.items():
+        cached_state[k] = v
+else:
+    cached_state = defaultdict(str)
+
+print(cached_state)
+st.session_state.color_schemes = cached_state['color_schemes']
+if st.session_state.color_schemes == '':
+    st.session_state.color_schemes = st.session_state.color_schemes = ["gist_yarg"] * 100
 
 results = {}
 image_to_show = []
 if 'run_id' not in st.session_state:
     st.session_state.run_id = 0
 if 'bins' not in st.session_state:
-    st.session_state.bins = 5
+    st.session_state.bins = 5    
 
-if 'color_schemes' not in st.session_state:
-    st.session_state.color_schemes = ["hsv", "gist_rainbow", "RdGy", "seismic"] * 100
+if 'coordinates' not in st.session_state or st.session_state.coordinates is None:
+    st.session_state.coordinates = defaultdict(list)
 
 umap_model_folder, nmf_model_path, nmf_model_name = None, None, None
 
 with st.sidebar:
-    extraction_root_folder = st.text_input("Extraction Root Folder")
+    extraction_root_folder = st.text_input('Extraction Root Folder', value=cached_state["Extraction Root Folder"])
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
-
-        selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
+        extraction_folders_keys = list(extraction_folders.keys())
+        if cached_state['Extration folder'] == '':
+            cached_state['Extration folder'] = extraction_folders_keys[0]
+        selected_extraction = st.selectbox('Extration folder', extraction_folders_keys, index=extraction_folders_keys.index(cached_state['Extration folder']))
         if selected_extraction:
             extraction_folder = extraction_folders[selected_extraction]
-            regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
+            region_list = get_files_from_folder(extraction_folder)
+            if cached_state['Regions to include'] == '':
+                default=None
+            else:
+                default = cached_state['Regions to include']
+            regions = st.multiselect('Regions to include', region_list,  default=default)
     
     st.divider()
     
-    nmf_model_folder = st.text_input("Model folder")
-    umap_model_folder = st.text_input("UMAP Model folder (optional)")
+    nmf_model_folder = st.text_input('Model folder', value=cached_state['Model folder'])
     if nmf_model_folder:
         nmf_model_paths = list(glob.glob(nmf_model_folder + "\\*.joblib")) \
             + list(glob.glob(nmf_model_folder + "\\*\\*.joblib"))
         nmf_model_display_paths = [Path(p).stem for p in nmf_model_paths]
-        nmf_model_name = st.selectbox('Segmentation model path', nmf_model_display_paths)
+
+        default = cached_state['Segmentation model path']
+        if default == '':
+            default = None
+        else:
+            default = nmf_model_display_paths.index(default)
+        nmf_model_name = st.selectbox('Segmentation model path', nmf_model_display_paths, index=default)
+
+    umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
 
     sub_sample = st.number_input('Subsample pixels', value=None)
 
@@ -81,11 +119,13 @@ if umap_model_folder:
 with st.sidebar:
     st.divider()
     colorschemes = list(colormaps)
-    default_colors = ["hsv", "gist_rainbow", "RdGy", "seismic"] * 100
     if umap_model_folder:
         region_selectbox = st.selectbox(f"Region to control", [i for i in range(nmf.k)], index=0)
         
-        region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index=colorschemes.index(st.session_state.color_schemes[int(region_selectbox)]))
+        default = None
+        if st.session_state.color_schemes != '' and int(region_selectbox) in st.session_state.color_schemes:
+            default = st.session_state.color_schemes[int(region_selectbox)]
+        region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index=default)
         st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
 
         current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
@@ -117,8 +157,9 @@ if save:
     
 
 if start:
+    save_to_cache()
     st.session_state.run_id = st.session_state.run_id + 1
-    with st.spinner(text="Running NMF segmentation.."):
+    with st.spinner(text="Running segmentation.."):
         st.session_state.coordinates = None
         st.session_state.results = None
         st.session_state.difference_visualizations = None
@@ -146,14 +187,11 @@ if start:
     with st.sidebar:
         image_to_show = st.selectbox('Image to show', list(st.session_state.results.keys()), key = st.session_state.run_id)
 
-if 'coordinates' not in st.session_state or st.session_state.coordinates is None:
-    st.session_state.coordinates = defaultdict(list)
 
 if 'results' in st.session_state:
     for path, data in st.session_state.results.items():
         img, data_for_visualization = data["mz_image"], data["data_for_visualization"]
         if path in image_to_show:
-
             if umap_model_folder:
                 nmf_segmentation_mask, segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
                                                                                     st.session_state.color_schemes)
@@ -225,6 +263,7 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
                         st.session_state['current_color_scheme'] = current_color_scheme
 
                     if image_to_show not in st.session_state.difference_visualizations or st.session_state['current_color_scheme'] != current_color_scheme:
+                        save_to_cache()
                         diff = visualizations.RegionComparison(mz_image,
                                                                segmentation_mask,
                                                                visualization,

@@ -12,7 +12,6 @@ class SegmentationUMAPVisualization:
 
     def factorize(self, img, number_of_bins_for_comparison=5):
         umap_1d = self.umap_model.predict(img)[:, :, 0]
-        #colors_maps = ["hsv", "gist_rainbow", "RdGy", "seismic"]*100
         segmentation, _ = self.segmentation_model.predict(img)
         segmentation = segmentation.argmax(axis=0)
     
@@ -53,7 +52,7 @@ class SegmentationUMAPVisualization:
             region_umap = region_umaps.copy()
             region_umap = np.uint8(region_umap * 255)
             region_visualization = cv2.applyColorMap(region_umap, cmapy.cmap(color_scheme_per_region[region]))
-            #region_visualization = region_visualization[:, :, ::-1]
+            region_visualization = region_visualization[:, :, ::-1]
             region_visualization[region_mask == 0] = 0
             visualizations.append(region_visualization)
         
