@@ -26,6 +26,10 @@ from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
 
+def update_region_color():
+    if region_colorscheme and region_selectbox and colorschemes:
+        region_colorscheme.index=colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
+
 def save_to_cache(cache_path='deploy.cache'):
     
     cache = {'Extraction Root Folder': extraction_root_folder,
@@ -47,9 +51,10 @@ else:
     cached_state = defaultdict(str)
 
 print(cached_state)
-st.session_state.color_schemes = cached_state['color_schemes']
+if 'color_schemes' not in st.session_state:
+    st.session_state.color_schemes = cached_state['color_schemes']
 if st.session_state.color_schemes == '':
-    st.session_state.color_schemes = st.session_state.color_schemes = ["gist_yarg"] * 100
+    st.session_state.color_schemes = ["gist_yarg"] * 100
 
 results = {}
 image_to_show = []
@@ -62,7 +67,7 @@ if 'coordinates' not in st.session_state or st.session_state.coordinates is None
     st.session_state.coordinates = defaultdict(list)
 
 umap_model_folder, nmf_model_path, nmf_model_name = None, None, None
-
+region_colorscheme = None
 with st.sidebar:
     extraction_root_folder = st.text_input('Extraction Root Folder', value=cached_state["Extraction Root Folder"])
     if extraction_root_folder:
@@ -122,9 +127,9 @@ with st.sidebar:
     if umap_model_folder:
         region_selectbox = st.selectbox(f"Region to control", [i for i in range(nmf.k)], index=0)
         
-        default = None
-        if st.session_state.color_schemes != '' and int(region_selectbox) in st.session_state.color_schemes:
-            default = st.session_state.color_schemes[int(region_selectbox)]
+        default = colorschemes.index(st.session_state.color_schemes[0])
+        if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
+            default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
         region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index=default)
         st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
 
