@@ -3,7 +3,7 @@ path = "nmf_train.py"
 name = "Train NMF Virtual Staining"
 
 [[pages]]
-path = "nmf_deploy.py"
+path = "deploy.py"
 name = "Run NMF-Stain"
 
 [[pages]]
