@@ -240,7 +240,7 @@ def create_ion_image(img, mz):
     ion = ion / np.percentile(ion[:], 99)
     ion[ion > 1] = 1
     ion = np.uint8(255 * ion)
-    ion = cv2.applyColorMap(ion, cmapy.cmap('cividis'))[:, :, ::-1]
+    ion = cv2.applyColorMap(ion, cmapy.cmap('viridis'))[:, :, ::-1]
     return ion
 
 
