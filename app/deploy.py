@@ -49,11 +49,11 @@ def make_hashable(o):
 
 def get_settings():
     return {'Extraction Root Folder': extraction_root_folder,
-     'Extration folder': selected_extraction,
+     'Extraction folder': selected_extraction,
      'Regions to include': regions,
      'Model folder': nmf_model_folder,
      'UMAP Model folder (optional)': umap_model_folder,
-     'Segmentation model path': nmf_model_name,
+     'Segmentation model': nmf_model_name,
      'Image to show': image_to_show,
      'output_normalization': output_normalization,
      'color_schemes': st.session_state.color_schemes,
@@ -124,9 +124,9 @@ with st.sidebar:
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
         extraction_folders_keys = list(extraction_folders.keys())
-        if cached_state['Extration folder'] == '':
-            cached_state['Extration folder'] = extraction_folders_keys[0]
-        selected_extraction = st.selectbox('Extration folder', extraction_folders_keys, index=extraction_folders_keys.index(cached_state['Extration folder']))
+        if cached_state['Extraction folder'] == '':
+            cached_state['Extraction folder'] = extraction_folders_keys[0]
+        selected_extraction = st.selectbox('Extraction folder', extraction_folders_keys, index=extraction_folders_keys.index(cached_state['Extraction folder']))
         if selected_extraction:
             extraction_folder = extraction_folders[selected_extraction]
             region_list = get_files_from_folder(extraction_folder)
@@ -147,12 +147,12 @@ with st.sidebar:
             + list(glob.glob(nmf_model_folder + "\\*\\*.joblib"))
         nmf_model_display_paths = [Path(p).stem for p in nmf_model_paths]
 
-        default = cached_state['Segmentation model path']
+        default = cached_state['Segmentation model']
         if default == '':
             default = None
         else:
             default = nmf_model_display_paths.index(default)
-        nmf_model_name = st.selectbox('Segmentation model path', nmf_model_display_paths, index=default)
+        nmf_model_name = st.selectbox('Segmentation model', nmf_model_display_paths, index=default)
 
     umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
     output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
@@ -211,7 +211,6 @@ with st.sidebar:
 
 start = st.button("Run")
 #save = st.button("Save")
-
 # if save:
 #     save_data()
 
