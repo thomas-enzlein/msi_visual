@@ -55,7 +55,7 @@ for k in tqdm.tqdm(args.number_of_components):
     
     if len(args.prefix) > 0:
         args.prefix = args.prefix + "_"
-    name = f"{args.prefix}bins_{bins}_k_{k}_startmz_{args.start_mz}_endmz_{args.end_mz}.joblib"
+    name = f"{args.prefix}bins{bins}_k{k}_startmz{args.start_mz}_endmz{args.end_mz}.joblib"
     output = Path(args.output_path) / name
 
     joblib.dump(seg, output)
