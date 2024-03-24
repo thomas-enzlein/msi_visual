@@ -300,8 +300,8 @@ if 'results' in st.session_state:
 
 if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
     images = []
-    segmentation_mask = st.session_state.results[path]["segmentation_mask"]
-    visualization = st.session_state.results[path]["visualization"]
+    segmentation_mask = st.session_state.results[image_to_show]["segmentation_mask"]
+    visualization = st.session_state.results[image_to_show]["visualization"]
     for point in st.session_state.coordinates[image_to_show]:
         x, y = int(point['x']), int(point['y'])
         heatmap = visualizations.get_mask(visualization, segmentation_mask, x, y)
