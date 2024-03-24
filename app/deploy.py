@@ -151,7 +151,10 @@ with st.sidebar:
         if default == '':
             default = None
         else:
-            default = nmf_model_display_paths.index(default)
+            if default in nmf_model_display_paths:
+                default = nmf_model_display_paths.index(default)
+            else:
+                default = None
         nmf_model_name = st.selectbox('Segmentation model', nmf_model_display_paths, index=default)
 
     umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
