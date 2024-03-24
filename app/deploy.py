@@ -15,6 +15,7 @@ from st_pages import show_pages_from_config, add_page_title
 from streamlit_image_coordinates import streamlit_image_coordinates
 from pathlib import Path
 import importlib
+import wx
 import msi_visual
 importlib.reload(msi_visual)
 from msi_visual import nmf_segmentation
@@ -26,14 +27,67 @@ from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
 
-def save_to_cache(cache_path='deploy.cache'):    
-    cache = {'Extraction Root Folder': extraction_root_folder,
+import hashlib
+import base64
+
+def make_hash_sha256(o):
+    hasher = hashlib.md5()
+    hasher.update(repr(make_hashable(o)).encode())
+    return base64.urlsafe_b64encode(hasher.digest()).decode()
+
+def make_hashable(o):
+    if isinstance(o, (tuple, list)):
+        return tuple((make_hashable(e) for e in o))
+
+    if isinstance(o, dict):
+        return tuple(sorted((k,make_hashable(v)) for k,v in o.items()))
+
+    if isinstance(o, (set, frozenset)):
+        return tuple(sorted(make_hashable(e) for e in o))
+
+    return o
+
+def get_settings():
+    return {'Extraction Root Folder': extraction_root_folder,
      'Extration folder': selected_extraction,
      'Regions to include': regions,
      'Model folder': nmf_model_folder,
      'UMAP Model folder (optional)': umap_model_folder,
      'Segmentation model path': nmf_model_name,
-     'color_schemes': st.session_state.color_schemes}
+     'Image to show': image_to_show,
+     'output_normalization': output_normalization,
+     'color_schemes': st.session_state.color_schemes,
+     'current_color_scheme': current_color_scheme}
+
+def get_settings_hash():
+    settings = get_settings()
+    return make_hash_sha256(settings)
+
+def save_data():
+    if image_to_show:
+        folder = datetime.datetime.today().strftime('%Y-%m-%d')
+        os.makedirs(folder, exist_ok=True)
+        image_name = Path(image_to_show).stem
+        if umap_model_folder:
+            prefix="umap"
+        else:
+            prefix="nmf"
+        now = datetime.datetime.now()
+        prefix = get_settings_hash() + "_" + prefix
+
+        if 'latest_diff' in st.session_state:
+            img, visualization, label_a, label_b = st.session_state.latest_diff
+            Image.fromarray(img).save(Path(folder) / f"{image_name}_{label_a}_{label_b}_{prefix}.png")
+
+            if 'latest_heatmaps' in st.session_state:
+                for index, heatmap in enumerate(st.session_state.latest_heatmaps):
+                    Image.fromarray(heatmap).save(Path(folder) / f"{image_name}_{[label_a, label_b][index]}_{prefix}_mask.png")
+        else:
+            visualization = st.session_state.results[image_to_show]["visualization"]
+        Image.fromarray(visualization).save(Path(folder) / f"{image_name}_{prefix}.png")    
+
+def save_to_cache(cache_path='deploy.cache'):    
+    cache = get_settings()
     
     joblib.dump(cache, cache_path)
 
@@ -45,14 +99,16 @@ if os.path.exists("deploy.cache"):
 else:
     cached_state = defaultdict(str)
 
-print(cached_state)
+app = wx.App()
+wx.DisableAsserts()
+
 if 'color_schemes' not in st.session_state:
     st.session_state.color_schemes = cached_state['color_schemes']
 if st.session_state.color_schemes == '':
     st.session_state.color_schemes = ["gist_yarg"] * 100
 
 results = {}
-image_to_show = []
+image_to_show = None
 if 'run_id' not in st.session_state:
     st.session_state.run_id = 0
 if 'bins' not in st.session_state:
@@ -133,33 +189,31 @@ with st.sidebar:
         if st.button('Update color scheme'):
             st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
 
+        if st.button("Export color scheme"):
+            dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
+            if dialog.ShowModal() == wx.ID_OK:
+                export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
+                with open(export_path, 'w') as f:
+                    json.dump(st.session_state.color_schemes, f)
+
+        if st.button("Import color scheme"):
+            dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
+            if dialog.ShowModal() == wx.ID_OK:
+                export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
+                with open(export_path, 'r') as f:
+                    st.session_state.color_schemes = json.load(f)
+        
         current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
+
     else:
         color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
         current_color_scheme = color_scheme
 
 start = st.button("Run")
-save = st.button("Save")
+#save = st.button("Save")
 
-if save:
-    if image_to_show:
-        folder = datetime.datetime.today().strftime('%Y-%m-%d')
-        os.makedirs(folder, exist_ok=True)
-        img, visualization, label_a, label_b = st.session_state.latest_diff
-        image_name = Path(image_to_show).stem
-        if umap_model_folder:
-            prefix="umap"
-        else:
-            prefix="nmf"
-        now = datetime.datetime.now()
-        prefix = prefix + "_ " + now.strftime("%H_%M_%S")
-        Image.fromarray(img).save(Path(folder) / f"{image_name}_{label_a}_{label_b}_{prefix}.png")
-        Image.fromarray(visualization).save(Path(folder) / f"{image_name}_{prefix}.png")
-        
-        if 'latest_heatmaps' in st.session_state:
-            for index, heatmap in enumerate(st.session_state.latest_heatmaps):
-                Image.fromarray(heatmap).save(Path(folder) / f"{image_name}_{[label_a, label_b][index]}_{prefix}_mask.png")
-    
+# if save:
+#     save_data()
 
 if start:
     save_to_cache()
@@ -294,6 +348,7 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
                         image, label_a, label_b = diff.visualize_comparison_between_points(point_a, point_b)
                         st.image(image)
                     st.session_state.latest_diff = (image, visualization, label_a, label_b)
+    save_data()
 
 if image_to_show:
     mz = st.text_input('Create ION image for m/z:')
