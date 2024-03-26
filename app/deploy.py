@@ -152,7 +152,10 @@ with st.sidebar:
         if default == '':
             default = None
         else:
-            default = nmf_model_display_paths.index(default)
+            if default in nmf_model_display_paths:
+                default = nmf_model_display_paths.index(default)
+            else:
+                default = None
         nmf_model_name = st.selectbox('Segmentation model', nmf_model_display_paths, index=default)
 
     umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
@@ -313,8 +316,8 @@ if 'results' in st.session_state:
 
 if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
     images = []
-    segmentation_mask = st.session_state.results[path]["segmentation_mask"]
-    visualization = st.session_state.results[path]["visualization"]
+    segmentation_mask = st.session_state.results[image_to_show]["segmentation_mask"]
+    visualization = st.session_state.results[image_to_show]["visualization"]
     for point in st.session_state.coordinates[image_to_show]:
         x, y = int(point['x']), int(point['y'])
         heatmap = visualizations.get_mask(visualization, segmentation_mask, x, y)
