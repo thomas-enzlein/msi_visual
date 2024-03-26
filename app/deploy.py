@@ -23,6 +23,7 @@ from msi_visual import visualizations
 from msi_visual import objects
 from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
     get_files_from_folder
+from msi_visual.utils import get_certainty
 from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
@@ -217,6 +218,7 @@ start = st.button("Run")
 if start:
     save_to_cache()
     st.session_state.run_id = st.session_state.run_id + 1
+
     with st.spinner(text="Running segmentation.."):
         st.session_state.coordinates = None
         st.session_state.results = None
@@ -251,12 +253,19 @@ if 'results' in st.session_state:
         img, data_for_visualization = data["mz_image"], data["data_for_visualization"]
         if path in image_to_show:
             if umap_model_folder:
-                nmf_segmentation_mask, segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
+                nmf_segmentation_mask, _, _ = data_for_visualization
+                _, segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
                                                                                     st.session_state.color_schemes, method=output_normalization)
-                st.session_state.results[path]["nmf_segmentation_mask"] = nmf_segmentation_mask
             else:
+                nmf_segmentation_mask = data_for_visualization
                 segmentation_mask, visualization = nmf.visualize_factorization(img, data_for_visualization, color_scheme, method=output_normalization)
+            st.session_state.results[path]["nmf_segmentation_mask"] = nmf_segmentation_mask
 
+            certainty_image = None
+
+            certainty_image = get_certainty(nmf_segmentation_mask, img)
+            certainty_image[img.max(axis=-1) == 0] = 0
+            
             if len(segmentation_mask.shape) > 2:
                 segmentation_mask = segmentation_mask.argmax(axis=0)
                 segmentation_mask[img.max(axis=-1) == 0] = -1
@@ -280,6 +289,9 @@ if 'results' in st.session_state:
 
             st.session_state.results[path]["segmentation_mask"] = segmentation_mask
             st.session_state.results[path]["visualization"] = visualization
+
+            if certainty_image is not None:
+                st.session_state.results[path]["certainty"] = certainty_image
             point = streamlit_image_coordinates(visualization)
 
             if umap_model_folder:
@@ -294,6 +306,10 @@ if 'results' in st.session_state:
                 else:
                     st.session_state.coordinates[path].append(point)
                     st.session_state.coordinates[path] = st.session_state.coordinates[path][-2 : ]
+
+            if certainty_image is not None:
+                st.text('Clustering Certainty')
+                st.image(np.uint8(255*certainty_image))
 
 if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
     images = []

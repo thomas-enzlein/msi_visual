@@ -61,9 +61,17 @@ class KmeansSegmentation:
         vector = self.normalization(img).reshape((-1, img.shape[-1]))
 
         centroids = self.model.cluster_centers_
+
+        # distances = euclidean_distances(np.array(centroids), np.array(vector))
+        # distances = distances / distances.sum(axis=0)
+        # print(distances.shape, distances.min(), distances.max())
+        # segmentation = 1 - distances
+        # segmentation = segmentation.reshape(self.k, img.shape[0], img.shape[1])
+
         similarity = cosine_similarity(np.array(centroids), np.array(vector))
         segmentation = similarity.reshape(self.k, img.shape[0], img.shape[1])
         segmentation  = torch.nn.Softmax(dim=0)(torch.from_numpy(segmentation * 50)).numpy()
+
         return segmentation
 
     def visualize_factorization(self, img, contributions, color_scheme='gist_rainbow', method='spatial_norm'):

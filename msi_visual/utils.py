@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.decomposition import non_negative_factorization
 from matplotlib import pyplot as plt
 from collections import defaultdict
-
+from scipy.stats import entropy
 from msi_visual.visualizations import get_colors, visualizations_from_explanations
 
 def brain_nmf_semantic_segmentation(img_path_for_segmentation: str, H_path: str = "h_cosegmentation.npy", NUM_COMPONENTS:int = 5) -> np.ndarray:
@@ -32,7 +32,7 @@ def brain_nmf_semantic_segmentation_highres(img_path_for_segmentation: str, H_pa
 
 import numpy as np
 
-def normalize_image_grayscale(grayscale, low_percentile: int = 0.1, high_percentile: int = 99):
+def normalize_image_grayscale(grayscale, low_percentile: int = 0.1, high_percentile: int = 99.9):
     a = grayscale.copy()
     low = np.percentile(a[:], low_percentile)
     a = (a - low) 
@@ -57,3 +57,16 @@ def image_histogram_equalization(image, mask, number_bins=256):
     image_equalized = np.interp(image.flatten(), bins[:-1], cdf)
 
     return image_equalized.reshape(image.shape)
+
+def get_certainty(segmentation, img):
+    #normalized = segmentation - segmentation.min()
+    print("segmentation", segmentation.min(), segmentation.max(), segmentation  .shape)
+    normalized = segmentation / (1e-6 + segmentation.sum(axis=0))
+    print("normalized", normalized.min(), normalized.max(), normalized.shape)
+    print(normalized)
+    print(normalized[:, 100, 100])
+    e = entropy(normalized, axis=0, base=normalized.shape[0])
+    e = 1 - e
+    e[img.max(axis=-1) == 0] = 0
+    print("entropy", e.min(), e.max(), e.shape)
+    return e
