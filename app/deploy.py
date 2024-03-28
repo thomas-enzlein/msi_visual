@@ -27,6 +27,7 @@ from msi_visual.app_utils.extraction_info import display_paths_to_extraction_pat
 from msi_visual.utils import get_certainty, set_region_importance
 from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
+from msi_visual.avgmz_nmf_segmentation import SegmentationAvgMZVisualization
 importlib.reload(visualizations)
 import hashlib
 import base64
@@ -56,6 +57,7 @@ def get_settings():
      'Model folder': nmf_model_folder,
      'confidence_thresholds': st.session_state.confidence_thresholds,
      'UMAP Model folder (optional)': umap_model_folder,
+     'combination_method': combination_method,
      'Segmentation model': nmf_model_name,
      'Image to show': image_to_show,
      'output_normalization': output_normalization,
@@ -72,10 +74,7 @@ def save_data():
         folder = datetime.datetime.today().strftime('%Y-%m-%d')
         os.makedirs(folder, exist_ok=True)
         image_name = Path(image_to_show).stem
-        if umap_model_folder:
-            prefix="umap"
-        else:
-            prefix="nmf"
+        prefix = combination_method
         now = datetime.datetime.now()
         prefix = get_settings_hash() + "_" + prefix
 
@@ -113,7 +112,7 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 if 'model' not in st.session_state:
-    st.session_state.model = {}
+    st.session_state.model = {'Heatmap': {}, 'UMAP': {}, "Segmentation": {}}
     st.session_state.segmentation_model = {}
 
 if 'setting_hash' not in st.session_state:
@@ -170,7 +169,11 @@ with st.sidebar:
                 default = None
         nmf_model_name = st.selectbox('Segmentation model', nmf_model_display_paths, index=default)
 
-    umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
+    combination_method = st.radio('Color Coding Method',
+                                  ["Segmentation", "UMAP", "Heatmap"], index=0)
+    st.write("combination_method", combination_method)
+    if combination_method == "UMAP":
+        umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
     output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
     sub_sample = st.number_input('Subsample pixels', value=None)
     
@@ -190,23 +193,27 @@ if image_to_show is not None:
         else:
             model = st.session_state['segmentation_model'][image_to_show]
 
-    if umap_model_folder:
-        if image_to_show not in st.session_state['model']:
+    if combination_method == "UMAP" and umap_model_folder:
+        if image_to_show not in st.session_state['model'][combination_method]:
             umap = parametric_umap.UMAPVirtualStain()
             umap.load(umap_model_folder)        
             model = SegmentationUMAPVisualization(umap, model)
         else:
-            model = st.session_state['model'][image_to_show]
-
+            model = st.session_state['model'][combination_method][image_to_show]
+    
+    elif combination_method == "Heatmap":
+        if image_to_show not in st.session_state['model'][combination_method]:
+            model = SegmentationAvgMZVisualization(model)
+        else:
+            model = st.session_state['model'][combination_method][image_to_show]
+    
     if nmf_model_name:
-        st.session_state['model'][image_to_show] = model
-
-print(image_to_show, 'image_to_show')
+        st.session_state['model'][combination_method][image_to_show] = model
 
 # Delete previous models
-for path in st.session_state['model']:
+for path in st.session_state['model'][combination_method]:
     if image_to_show != path:
-        del st.session_state['model'][path]
+        del st.session_state['model'][combination_method][path]
         del st.session_state['segmentation_model'][path]
 
 with st.sidebar:
@@ -227,7 +234,7 @@ with st.sidebar:
                               value=region_default)
 
 
-    if umap_model_folder:
+    if combination_method != "Segmentation":
         default = colorschemes.index(st.session_state.color_schemes[0])
         if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
             default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
@@ -280,6 +287,7 @@ if start:
 
         if 'results' in st.session_state:
             del st.session_state.results
+
         st.session_state.results = {}
         for path in regions:
             if sub_sample:
@@ -310,8 +318,7 @@ if 'results' in st.session_state:
                         roi_mask[certainty_image < low] = 0
                         roi_mask[certainty_image > high] = 0
 
-
-                if umap_model_folder:
+                if combination_method != "Segmentation":
                     segmentation_mask, sub_segmentation_mask, visualization = model.visualize_factorization(img,
                                                                     segmentation_mask,
                                                                     roi_mask,
@@ -328,7 +335,6 @@ if 'results' in st.session_state:
                                                                                     region_factors=st.session_state.region_importance)
                     
                     visualization[roi_mask == 0] = 0
-
                     segmentation_mask_argmax = segmentation_mask.argmax(axis=0)
                     segmentation_mask_argmax[roi_mask == 0] = 0
                     segmentation_mask_for_comparisons = segmentation_mask_argmax
