@@ -28,6 +28,7 @@ from msi_visual.utils import get_certainty, set_region_importance
 from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 from msi_visual.avgmz_nmf_segmentation import SegmentationAvgMZVisualization
+from msi_visual.avgmz import AvgMZVisualization
 importlib.reload(visualizations)
 import hashlib
 import base64
@@ -112,7 +113,7 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 if 'model' not in st.session_state:
-    st.session_state.model = {'Heatmap': {}, 'UMAP': {}, "Segmentation": {}}
+    st.session_state.model = {'Seg+Heatmap': {}, 'Seg+UMAP': {}, "Segmentation": {}, "MZHeatmap": {}}
     st.session_state.segmentation_model = {}
 
 if 'setting_hash' not in st.session_state:
@@ -170,9 +171,9 @@ with st.sidebar:
         nmf_model_name = st.selectbox('Segmentation model', nmf_model_display_paths, index=default)
 
     combination_method = st.radio('Color Coding Method',
-                                  ["Segmentation", "UMAP", "Heatmap"], index=0)
+                                  ["Segmentation", "Seg+UMAP", "Seg+Heatmap", "MZHeatmap"], index=0)
     
-    if combination_method == "UMAP":
+    if combination_method == "Seg+UMAP":
         umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
     output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
     sub_sample = st.number_input('Subsample pixels', value=None)
@@ -185,6 +186,7 @@ with st.sidebar:
     image_to_show = st.selectbox('Image to show', list(regions), key = st.session_state.run_id)
 
 if image_to_show is not None:
+    st.write(combination_method)
     if nmf_model_name:
         if image_to_show not in st.session_state['segmentation_model']:
             nmf_model_path = [p for p in nmf_model_paths if Path(p).stem == nmf_model_name][0]
@@ -192,22 +194,35 @@ if image_to_show is not None:
             st.session_state['segmentation_model'][image_to_show] = model
         else:
             model = st.session_state['segmentation_model'][image_to_show]
-
-    if combination_method == "UMAP" and umap_model_folder:
-        if image_to_show not in st.session_state['model'][combination_method]:
-            umap = parametric_umap.UMAPVirtualStain()
-            umap.load(umap_model_folder)        
-            model = SegmentationUMAPVisualization(umap, model)
-        else:
-            model = st.session_state['model'][combination_method][image_to_show]
     
-    elif combination_method == "Heatmap":
+    if combination_method == "Seg+UMAP":
+        if umap_model_folder:
+            print(st.session_state['model'][combination_method])
+            print(combination_method)
+            print("****")
+            if image_to_show not in st.session_state['model'][combination_method]:
+                umap = parametric_umap.UMAPVirtualStain()
+                umap.load(umap_model_folder)        
+                model = SegmentationUMAPVisualization(umap, model)
+            else:
+                model = st.session_state['model'][combination_method][image_to_show]
+        else:
+            model = None
+    
+    elif combination_method == "Seg+Heatmap":
+        print("combination_method", combination_method)
         if image_to_show not in st.session_state['model'][combination_method]:
             model = SegmentationAvgMZVisualization(model)
         else:
             model = st.session_state['model'][combination_method][image_to_show]
+    elif combination_method == "MZHeatmap":
+        if image_to_show not in st.session_state['model'][combination_method]:
+            model = AvgMZVisualization()
+        else:
+            model = st.session_state['model'][combination_method][image_to_show]
     
-    if nmf_model_name:
+    if model is not None:
+        print(f"writing {model} tp {combination_method}")
         st.session_state['model'][combination_method][image_to_show] = model
 
 # Delete previous models
@@ -216,58 +231,62 @@ for path in st.session_state['model'][combination_method]:
         del st.session_state['model'][combination_method][path]
         del st.session_state['segmentation_model'][path]
 
+colorschemes = list(colormaps)
 with st.sidebar:
     st.divider()
-    colorschemes = list(colormaps)
-        
-    region_selectbox = 0
-    if image_to_show:
-        region_selectbox = st.selectbox(f"Region to control", [i for i in range(model.k)], index=0)
-    
-    
-    region_default = 1.0
-    if region_selectbox in st.session_state.region_importance:
-        region_default = st.session_state.region_importance[int(region_selectbox)]
-    region_factor = st.slider(label=f'Weight: Region {region_selectbox}',
-                              min_value=0.0,
-                              max_value=10.0,
-                              value=region_default)
+    if combination_method != "MZHeatmap":
+            region_selectbox = 0
+            if image_to_show:
+                region_selectbox = st.selectbox(f"Region to control", [i for i in range(model.k)], index=0)
+            
+            
+            region_default = 1.0
+            if region_selectbox in st.session_state.region_importance:
+                region_default = st.session_state.region_importance[int(region_selectbox)]
+            region_factor = st.slider(label=f'Weight: Region {region_selectbox}',
+                                    min_value=0.0,
+                                    max_value=10.0,
+                                    value=region_default)
 
 
-    if combination_method != "Segmentation":
-        default = colorschemes.index(st.session_state.color_schemes[0])
-        if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
-            default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
-        region_colorscheme = st.selectbox(f"Color Scheme: region {region_selectbox}", colorschemes, index=default)
+            if combination_method != "Segmentation":
+                default = colorschemes.index(st.session_state.color_schemes[0])
+                if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
+                    default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
+                region_colorscheme = st.selectbox(f"Color Scheme: region {region_selectbox}", colorschemes, index=default)
 
-        if st.button("Export color scheme"):
-            dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
-            if dialog.ShowModal() == wx.ID_OK:
-                export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
-                with open(export_path, 'w') as f:
-                    json.dump(st.session_state.color_schemes, f)
+                if st.button("Export color scheme"):
+                    dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
+                    if dialog.ShowModal() == wx.ID_OK:
+                        export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
+                        with open(export_path, 'w') as f:
+                            json.dump(st.session_state.color_schemes, f)
 
-        if st.button("Import color scheme"):
-            dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
-            if dialog.ShowModal() == wx.ID_OK:
-                export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
-                with open(export_path, 'r') as f:
-                    st.session_state.color_schemes = json.load(f)
-        
-        current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
+                if st.button("Import color scheme"):
+                    dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
+                    if dialog.ShowModal() == wx.ID_OK:
+                        export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
+                        with open(export_path, 'r') as f:
+                            st.session_state.color_schemes = json.load(f)
+                
+                current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
 
+            else:
+                region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
+                current_color_scheme = region_colorscheme
+
+            if st.button('Update Region Settings'):
+                st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
+                st.session_state.region_importance[int(region_selectbox)] = region_factor
+
+
+            st.divider()
+            certainty_slider = st.slider('Confidence Thresholds', 0.0, 1.0, (0.0, 1.0))
+            st.session_state['confidence_thresholds'] = certainty_slider
     else:
-        region_colorscheme = st.selectbox(f"Color Scheme: region {region_selectbox}", colorschemes, index = colorschemes.index("gist_rainbow"))
+        region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
         current_color_scheme = region_colorscheme
 
-    if st.button('Update Region Settings'):
-        st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
-        st.session_state.region_importance[int(region_selectbox)] = region_factor
-
-
-    st.divider()
-    certainty_slider = st.slider('Confidence Thresholds', 0.0, 1.0, (0.0, 1.0))
-    st.session_state['confidence_thresholds'] = certainty_slider
 
 start = st.button("Run")
 
@@ -314,11 +333,12 @@ if 'results' in st.session_state:
                 if 'confidence_thresholds' in st.session_state:
                     low, high = st.session_state['confidence_thresholds']
                     if 'certainty_image' in st.session_state.results[path]:
-                        certainty_image = st.session_state.results[path]["certainty_image"]
-                        roi_mask[certainty_image < low] = 0
-                        roi_mask[certainty_image > high] = 0
+                        if st.session_state.results[path]['certainty_image'] is not None:
+                            certainty_image = st.session_state.results[path]["certainty_image"]
+                            roi_mask[certainty_image < low] = 0
+                            roi_mask[certainty_image > high] = 0
 
-                if combination_method != "Segmentation":
+                if combination_method in ["Seg+UMAP", "Seg+Heatmap"]:
                     segmentation_mask, sub_segmentation_mask, visualization = model.visualize_factorization(img,
                                                                     segmentation_mask,
                                                                     roi_mask,
@@ -327,8 +347,8 @@ if 'results' in st.session_state:
                                                                     region_factors=st.session_state.region_importance)
                     segmentation_mask_argmax = segmentation_mask.argmax(axis=0)
                     segmentation_mask_for_comparisons = sub_segmentation_mask
-                else:
-                    segmentation_mask, visualization, _ = model.visualize_factorization(img,
+                elif combination_method == "Segmentation":
+                    segmentation_mask, visualization = model.visualize_factorization(img,
                                                                                     segmentation_mask,
                                                                                     region_colorscheme,
                                                                                     method=output_normalization,
@@ -338,13 +358,26 @@ if 'results' in st.session_state:
                     segmentation_mask_argmax = segmentation_mask.argmax(axis=0)
                     segmentation_mask_argmax[roi_mask == 0] = 0
                     segmentation_mask_for_comparisons = segmentation_mask_argmax
+                elif combination_method == "MZHeatmap":
+                    segmentation_mask, visualization = model.visualize_factorization(img,
+                                                                                    segmentation_mask,
+                                                                                    roi_mask,
+                                                                                    region_colorscheme,
+                                                                                    method=output_normalization,
+                                                                                    region_factors=st.session_state.region_importance)
+                    
+                    visualization[roi_mask == 0] = 0
+                    segmentation_mask_for_comparisons = segmentation_mask
+                    segmentation_mask_argmax = None
 
-                certainty_image = get_certainty(segmentation_mask)
-                #certainty_image = segmentation_mask.max(axis=0)
-                certainty_image[img.max(axis=-1) == 0] = 0
-                certainty_image = np.uint8(certainty_image * 255)
-                certainty_image = cv2.equalizeHist(certainty_image)
-                certainty_image = np.float32(certainty_image) / 255
+                certainty_image= None
+                if combination_method != "MZHeatmap":
+                    certainty_image = get_certainty(segmentation_mask)
+                    #certainty_image = segmentation_mask.max(axis=0)
+                    certainty_image[img.max(axis=-1) == 0] = 0
+                    certainty_image = np.uint8(certainty_image * 255)
+                    certainty_image = cv2.equalizeHist(certainty_image)
+                    certainty_image = np.float32(certainty_image) / 255
 
                 st.session_state.results[path]["certainty_image"] = certainty_image
                 st.session_state.results[path]["segmentation_mask"] = segmentation_mask
@@ -377,24 +410,26 @@ if 'results' in st.session_state:
             point = streamlit_image_coordinates(st.session_state.results[path]["visualization"])
             num_cols = 2
 
-            with st.container():
-                cols = st.columns(num_cols)
+            if combination_method != "MZHeatmap":
+                with st.container():
+                    cols = st.columns(num_cols)
 
-                region_visualization = st.session_state.results[path]["visualization"].copy()                    
-                mask = np.uint8(segmentation_mask_argmax == int(region_selectbox)) * 255
-                region_visualization[mask == 0] = 0
-                cols[0].text('Selected Region')
-                cols[0].image(region_visualization)
+                    region_visualization = st.session_state.results[path]["visualization"].copy()                    
+                    mask = np.uint8(segmentation_mask_argmax == int(region_selectbox)) * 255
+                    region_visualization[mask == 0] = 0
+                    cols[0].text('Selected Region')
+                    cols[0].image(region_visualization)
 
-                if point is not None:
-                    if path in st.session_state.coordinates and point in [p for p in st.session_state.coordinates[path]]:
-                        pass
-                    else:
-                        st.session_state.coordinates[path].append(point)
-                        st.session_state.coordinates[path] = st.session_state.coordinates[path][-2 : ]
+                    if point is not None:
+                        if path in st.session_state.coordinates and point in [p for p in st.session_state.coordinates[path]]:
+                            pass
+                        else:
+                            st.session_state.coordinates[path].append(point)
+                            st.session_state.coordinates[path] = st.session_state.coordinates[path][-2 : ]
 
-                cols[1].text('Visualizaiton Confidence')
-                cols[1].image(np.uint8(255*st.session_state.results[path]["certainty_image"]))
+                    if st.session_state.results[path]["certainty_image"] is not None:
+                        cols[1].text('Visualizaiton Confidence')
+                        cols[1].image(np.uint8(255*st.session_state.results[path]["certainty_image"]))
 
 if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
     images = []

@@ -86,9 +86,9 @@ class KmeansSegmentation:
                                              intensity_image=certainty_image,
                                              factors=region_factors)
         if method == 'spatial_norm':
-            return normalized_sum, spatial_sum_visualization, contributions
+            return normalized_sum, spatial_sum_visualization
         else:
-            return normalized_percentile, global_percentile_visualization, contributions
+            return normalized_percentile, global_percentile_visualization
 
     def predict(self, img, color_scheme='gist_rainbow', method='spatial_norm'):
         contributions = self.factorize(img)
