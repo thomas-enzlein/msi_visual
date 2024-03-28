@@ -171,7 +171,7 @@ with st.sidebar:
 
     combination_method = st.radio('Color Coding Method',
                                   ["Segmentation", "UMAP", "Heatmap"], index=0)
-    st.write("combination_method", combination_method)
+    
     if combination_method == "UMAP":
         umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
     output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
