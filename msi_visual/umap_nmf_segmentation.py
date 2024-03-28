@@ -11,10 +11,6 @@ class SegmentationUMAPVisualization:
         self.segmentation_model = segmentation_model
         self.k = self.segmentation_model.k
 
-    def compute(self, img, method):
-        self.umap_1d = self.umap_model.predict(img)[:, :, 0]
-        self.segmentation,  _, self.raw_segmentation  = self.segmentation_model.predict(img, method=method)
-
     def factorize(self, img):
         self.umap_1d = self.umap_model.predict(img)[:, :, 0]
         self.segmentation = self.segmentation_model.factorize(img)
