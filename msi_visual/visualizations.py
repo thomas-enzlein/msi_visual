@@ -10,11 +10,14 @@ import cmapy
 from PIL import Image
 from functools import lru_cache
 
+from msi_visual.utils import set_region_importance
+
 def show_factorization_on_image(img: np.ndarray,
                                 explanations: np.ndarray,
                                 colors: list[np.ndarray] = None,
                                 image_weight: float = 0.5,
-                                concept_labels: list = None) -> np.ndarray:
+                                concept_labels: list = None,
+                                intensity_image: np.ndarray = None) -> np.ndarray:
     """ Color code the different component heatmaps on top of the image.
         Every component color code will be magnified according to the heatmap itensity
         (by modifying the V channel in the HSV color space),
@@ -49,7 +52,10 @@ def show_factorization_on_image(img: np.ndarray,
     for i in range(n_components):
         mask = np.zeros(shape=(img.shape[0], img.shape[1], 3))
         mask[:, :, :] = colors[i][:3]
-        explanation = explanations[i]
+        if intensity_image is not None:
+            explanation = intensity_image.copy()
+        else:
+            explanation = explanations[i]
         explanation[concept_per_pixel != i] = 0
         mask = np.uint8(mask * 255)
         mask = cv2.cvtColor(mask, cv2.COLOR_RGB2HSV)
@@ -97,20 +103,27 @@ def get_colors(number, colormap='gist_rainbow'):
             number)]
     return colors_for_components
 
-def visualizations_from_explanations(img, explanations, colors):
+def visualizations_from_explanations(img, explanations, colors, intensity_image=None, factors=None):
     normalized_by_spatial_sum = explanations / (1e-6 + explanations.sum(axis=(1, 2))[:, None, None])
     normalized_by_spatial_sum = normalized_by_spatial_sum / (1e-6 + np.percentile(normalized_by_spatial_sum, 99, axis=(1, 2) )[:, None, None])
-    
+    print("normalized_by_spatial_sum A", normalized_by_spatial_sum[:, 100, 100])
 
     normalized_by_global_percentile = explanations / np.percentile(explanations, 99, axis=(0, 1, 2))
+
+    if factors is not None:
+        normalized_by_spatial_sum = set_region_importance(normalized_by_spatial_sum, factors)
+        normalized_by_global_percentile = set_region_importance(normalized_by_global_percentile, factors)
+
     spatial_sum_visualization = show_factorization_on_image(np.zeros(shape=((img.shape[0], img.shape[1], 3))),
-                                                normalized_by_spatial_sum,
+                                                normalized_by_spatial_sum.copy(),
                                                 image_weight=0.0,
-                                                colors=colors)
+                                                colors=colors,
+                                                intensity_image=intensity_image)
     global_percentile_visualization = show_factorization_on_image(np.zeros(shape=((img.shape[0], img.shape[1], 3))),
-                                                normalized_by_global_percentile,
+                                                normalized_by_global_percentile.copy(),
                                                 image_weight=0.0,
-                                                colors=colors)
+                                                colors=colors,
+                                                intensity_image=intensity_image)
     return spatial_sum_visualization, global_percentile_visualization, normalized_by_spatial_sum, normalized_by_global_percentile
 
 def analyze_region_differences(ion_image: np.ndarray,

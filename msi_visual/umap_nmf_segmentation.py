@@ -9,22 +9,29 @@ class SegmentationUMAPVisualization:
     def __init__(self, umap_model, segmentation_model):
         self.umap_model = umap_model
         self.segmentation_model = segmentation_model
+        self.k = self.segmentation_model.k
 
-    def factorize(self, img, number_of_bins_for_comparison=5, method='spatial_norm'):
-        umap_1d = self.umap_model.predict(img)[:, :, 0]
-        segmentation,  _ = self.segmentation_model.predict(img, method=method)
-        if len(segmentation.shape) > 2:
-            segmentation = segmentation.argmax(axis=0)
-    
-        regions = np.unique(segmentation)
+    def compute(self, img, method):
+        self.umap_1d = self.umap_model.predict(img)[:, :, 0]
+        self.segmentation,  _, self.raw_segmentation  = self.segmentation_model.predict(img, method=method)
+
+    def factorize(self, img):
+        self.umap_1d = self.umap_model.predict(img)[:, :, 0]
+        self.segmentation = self.segmentation_model.factorize(img)
+        return self.segmentation
+
+    def get_subsegmentation(self, img, roi_mask, segmentation, number_of_bins_for_comparison):
+        segmentation_argmax = segmentation.argmax(axis=0)
+
+        regions = np.unique(segmentation_argmax)
         num_regions = len(regions)
-        sub_segmentation = np.zeros(shape=segmentation.shape[:2], dtype=np.int32)
-        region_umaps = np.zeros(shape=segmentation.shape, dtype=np.float32)
+        sub_segmentation = np.zeros(shape=segmentation_argmax.shape[:2], dtype=np.int32)
+        region_umaps = np.zeros(shape=segmentation_argmax.shape, dtype=np.float32)
 
         for region in regions:
-            region_mask = np.uint8(segmentation == region) * 255
-            region_mask[img.max(axis=-1) == 0] = 0
-            region_umap = umap_1d.copy()
+            region_mask = np.uint8(segmentation_argmax == region) * 255
+            region_mask[roi_mask == 0] = 0
+            region_umap = self.umap_1d.copy()
             region_umap[region_mask == 0] = 0
 
             region_umap = normalize_image_grayscale(region_umap, high_percentile=99)
@@ -36,17 +43,31 @@ class SegmentationUMAPVisualization:
 
             digitized = np.digitize(region_umap, bins)
             sub_segmentation[region_mask > 0] = digitized[region_mask > 0] + (number_of_bins_for_comparison + 2) * region
-        return segmentation, sub_segmentation, region_umaps
+        return sub_segmentation, region_umaps
 
-
-    def visualize_factorization(self, img, data_for_visualization, color_scheme_per_region, method='spatial_norm'):
-        segmentation, sub_segmentation, region_umaps = data_for_visualization
-        regions = np.unique(segmentation)
+    def visualize_factorization(self,
+                                img,
+                                segmentation,
+                                roi_mask,
+                                color_scheme_per_region,
+                                method='spatial_norm',
+                                region_factors=None,
+                                number_of_bins_for_comparison=5):
+        
+        segmentation, _, _, = self.segmentation_model.visualize_factorization(img,
+                                                        segmentation,
+                                                        method=method,
+                                                        region_factors=region_factors)
+        segmentation_argmax = segmentation.argmax(axis=0)
+        sub_segmentation, region_umaps = self.get_subsegmentation(img, roi_mask, segmentation, number_of_bins_for_comparison)
+        regions = np.unique(segmentation_argmax)
         # Create the colorful image
         visualizations = []
         for region in regions:
-            region_mask = np.uint8(segmentation == region) * 255
-            region_mask[img.max(axis=-1) == 0] = 0
+            region_mask = np.uint8(segmentation_argmax == region) * 255
+
+            if roi_mask is not None:
+                region_mask[roi_mask == 0] = 0
 
             region_umap = region_umaps.copy()
             region_umap = np.uint8(region_umap * 255)
