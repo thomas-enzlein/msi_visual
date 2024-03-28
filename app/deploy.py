@@ -16,6 +16,7 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 from pathlib import Path
 import importlib
 import wx
+import cv2
 import msi_visual
 importlib.reload(msi_visual)
 from msi_visual import nmf_segmentation
@@ -23,11 +24,10 @@ from msi_visual import visualizations
 from msi_visual import objects
 from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
     get_files_from_folder
-from msi_visual.utils import get_certainty
+from msi_visual.utils import get_certainty, set_region_importance
 from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 importlib.reload(visualizations)
-
 import hashlib
 import base64
 
@@ -48,16 +48,19 @@ def make_hashable(o):
 
     return o
 
+
 def get_settings():
     return {'Extraction Root Folder': extraction_root_folder,
      'Extraction folder': selected_extraction,
      'Regions to include': regions,
      'Model folder': nmf_model_folder,
+     'confidence_thresholds': st.session_state.confidence_thresholds,
      'UMAP Model folder (optional)': umap_model_folder,
      'Segmentation model': nmf_model_name,
      'Image to show': image_to_show,
      'output_normalization': output_normalization,
      'color_schemes': st.session_state.color_schemes,
+     'region_importance': st.session_state.region_importance,
      'current_color_scheme': current_color_scheme}
 
 def get_settings_hash():
@@ -107,6 +110,15 @@ if 'color_schemes' not in st.session_state:
     st.session_state.color_schemes = cached_state['color_schemes']
 if st.session_state.color_schemes == '':
     st.session_state.color_schemes = ["gist_yarg"] * 100
+if 'region_importance' not in st.session_state:
+    st.session_state.region_importance = {}
+if 'model' not in st.session_state:
+    st.session_state.model = {}
+    st.session_state.segmentation_model = {}
+
+if 'setting_hash' not in st.session_state:
+    st.session_state.setting_hash = None
+
 
 results = {}
 image_to_show = None
@@ -161,37 +173,65 @@ with st.sidebar:
     umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
     output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
     sub_sample = st.number_input('Subsample pixels', value=None)
-
-    if 'results' in st.session_state:
-        image_to_show = st.selectbox('Image to show', list(st.session_state.results.keys()), key = st.session_state.run_id)
     
     #objects_mode = st.checkbox('Objects mode')
     #objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])
     objects_mode = False
-    
 
-if nmf_model_name:
-    nmf_model_path = [p for p in nmf_model_paths if Path(p).stem == nmf_model_name][0]
-    nmf = joblib.load(open(nmf_model_path, 'rb'))
+with st.sidebar:
+    image_to_show = st.selectbox('Image to show', list(regions), key = st.session_state.run_id)
 
-if umap_model_folder:
-    umap = parametric_umap.UMAPVirtualStain()
-    umap.load(umap_model_folder)        
-    seg_umap = SegmentationUMAPVisualization(umap, nmf)
+if image_to_show is not None:
+    if nmf_model_name:
+        if image_to_show not in st.session_state['segmentation_model']:
+            nmf_model_path = [p for p in nmf_model_paths if Path(p).stem == nmf_model_name][0]
+            model = joblib.load(open(nmf_model_path, 'rb'))
+            st.session_state['segmentation_model'][image_to_show] = model
+        else:
+            model = st.session_state['segmentation_model'][image_to_show]
+
+    if umap_model_folder:
+        if image_to_show not in st.session_state['model']:
+            umap = parametric_umap.UMAPVirtualStain()
+            umap.load(umap_model_folder)        
+            model = SegmentationUMAPVisualization(umap, model)
+        else:
+            model = st.session_state['model'][image_to_show]
+
+    if nmf_model_name:
+        st.session_state['model'][image_to_show] = model
+
+print(image_to_show, 'image_to_show')
+
+# Delete previous models
+for path in st.session_state['model']:
+    if image_to_show != path:
+        del st.session_state['model'][path]
+        del st.session_state['segmentation_model'][path]
 
 with st.sidebar:
     st.divider()
     colorschemes = list(colormaps)
-    if umap_model_folder:
-        region_selectbox = st.selectbox(f"Region to control", [i for i in range(nmf.k)], index=0)
         
+    region_selectbox = 0
+    if image_to_show:
+        region_selectbox = st.selectbox(f"Region to control", [i for i in range(model.k)], index=0)
+    
+    
+    region_default = 1.0
+    if region_selectbox in st.session_state.region_importance:
+        region_default = st.session_state.region_importance[int(region_selectbox)]
+    region_factor = st.slider(label=f'Weight: Region {region_selectbox}',
+                              min_value=0.0,
+                              max_value=10.0,
+                              value=region_default)
+
+
+    if umap_model_folder:
         default = colorschemes.index(st.session_state.color_schemes[0])
         if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
             default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
-        region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index=default)
-
-        if st.button('Update color scheme'):
-            st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
+        region_colorscheme = st.selectbox(f"Color Scheme: region {region_selectbox}", colorschemes, index=default)
 
         if st.button("Export color scheme"):
             dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
@@ -210,15 +250,22 @@ with st.sidebar:
         current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
 
     else:
-        color_scheme = st.selectbox("Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
-        current_color_scheme = color_scheme
+        region_colorscheme = st.selectbox(f"Color Scheme: region {region_selectbox}", colorschemes, index = colorschemes.index("gist_rainbow"))
+        current_color_scheme = region_colorscheme
+
+    if st.button('Update Region Settings'):
+        st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
+        st.session_state.region_importance[int(region_selectbox)] = region_factor
+
+
+    st.divider()
+    certainty_slider = st.slider('Confidence Thresholds', 0.0, 1.0, (0.0, 1.0))
+    st.session_state['confidence_thresholds'] = certainty_slider
 
 start = st.button("Run")
-#save = st.button("Save")
-# if save:
-#     save_data()
 
 if start:
+    st.session_state.setting_hash = None
     save_to_cache()
     st.session_state.run_id = st.session_state.run_id + 1
 
@@ -231,47 +278,79 @@ if start:
         st.session_state.extraction_start_mz = extraction_args.start_mz
         st.session_state.extraction_end_mz = extraction_args.end_mz
 
+        if 'results' in st.session_state:
+            del st.session_state.results
+        st.session_state.results = {}
         for path in regions:
             if sub_sample:
                 img = np.load(path)[::int(sub_sample), ::int(sub_sample), :]
             else:
                 img = np.load(path)
             img = np.float32(img)
-
-            if umap_model_folder:
-                contributions = seg_umap.factorize(img, method=output_normalization)
-            else:
-                contributions = nmf.factorize(img)
-
-            results[path] = {"mz_image": img, "data_for_visualization": contributions}
-        
-        st.session_state.results = results
-
-    with st.sidebar:
-        image_to_show = st.selectbox('Image to show', list(st.session_state.results.keys()), key = st.session_state.run_id)
-
+            
+            results = {}
+            results["mz_image"] = img
+            results["segmentation"] = model.factorize(img)
+            st.session_state.results[path] = results
 
 if 'results' in st.session_state:
     for path, data in st.session_state.results.items():
-        img, data_for_visualization = data["mz_image"], data["data_for_visualization"]
         if path in image_to_show:
-            if umap_model_folder:
-                nmf_segmentation_mask, _, _ = data_for_visualization
-                _, segmentation_mask, visualization = seg_umap.visualize_factorization(img, data_for_visualization,
-                                                                                    st.session_state.color_schemes, method=output_normalization)
-            else:
-                nmf_segmentation_mask = data_for_visualization
-                segmentation_mask, visualization = nmf.visualize_factorization(img, data_for_visualization, color_scheme, method=output_normalization)
-            st.session_state.results[path]["nmf_segmentation_mask"] = nmf_segmentation_mask
-
-            certainty_image = None
-
-            certainty_image = get_certainty(nmf_segmentation_mask, img)
-            certainty_image[img.max(axis=-1) == 0] = 0
+            img = data["mz_image"]
+            segmentation_mask = data["segmentation"].copy()     
             
-            if len(segmentation_mask.shape) > 2:
-                segmentation_mask = segmentation_mask.argmax(axis=0)
-                segmentation_mask[img.max(axis=-1) == 0] = -1
+            if st.session_state.setting_hash != get_settings_hash():
+                st.session_state.setting_hash = get_settings_hash()
+
+                roi_mask = np.uint8(img.max(axis=-1) > 0)
+                if 'confidence_thresholds' in st.session_state:
+                    low, high = st.session_state['confidence_thresholds']
+                    if 'certainty_image' in st.session_state.results[path]:
+                        certainty_image = st.session_state.results[path]["certainty_image"]
+                        roi_mask[certainty_image < low] = 0
+                        roi_mask[certainty_image > high] = 0
+
+
+                if umap_model_folder:
+                    segmentation_mask, sub_segmentation_mask, visualization = model.visualize_factorization(img,
+                                                                    segmentation_mask,
+                                                                    roi_mask,
+                                                                    color_scheme_per_region=st.session_state.color_schemes,
+                                                                    method=output_normalization,
+                                                                    region_factors=st.session_state.region_importance)
+                    segmentation_mask_argmax = segmentation_mask.argmax(axis=0)
+                    segmentation_mask_for_comparisons = sub_segmentation_mask
+                else:
+                    segmentation_mask, visualization, _ = model.visualize_factorization(img,
+                                                                                    segmentation_mask,
+                                                                                    region_colorscheme,
+                                                                                    method=output_normalization,
+                                                                                    region_factors=st.session_state.region_importance)
+                    
+                    visualization[roi_mask == 0] = 0
+
+                    segmentation_mask_argmax = segmentation_mask.argmax(axis=0)
+                    segmentation_mask_argmax[roi_mask == 0] = 0
+                    segmentation_mask_for_comparisons = segmentation_mask_argmax
+
+                certainty_image = get_certainty(segmentation_mask)
+                #certainty_image = segmentation_mask.max(axis=0)
+                certainty_image[img.max(axis=-1) == 0] = 0
+                certainty_image = np.uint8(certainty_image * 255)
+                certainty_image = cv2.equalizeHist(certainty_image)
+                certainty_image = np.float32(certainty_image) / 255
+
+                st.session_state.results[path]["certainty_image"] = certainty_image
+                st.session_state.results[path]["segmentation_mask"] = segmentation_mask
+                st.session_state.results[path]["visualization"] = visualization
+                st.session_state.results[path]["segmentation_mask_for_comparisons"] = segmentation_mask_for_comparisons
+                st.session_state.results[path]["segmentation_mask_argmax"] = segmentation_mask_argmax
+
+            certainty_image = st.session_state.results[path]["certainty_image"]
+            segmentation_mask = st.session_state.results[path]["segmentation_mask"]
+            visualization = st.session_state.results[path]["visualization"]
+            segmentation_mask_for_comparisons = st.session_state.results[path]["segmentation_mask_for_comparisons"]
+            segmentation_mask_argmax = st.session_state.results[path]["segmentation_mask_argmax"]
 
             if objects_mode:
                 with st.spinner(text="Detecting objects.."):
@@ -289,38 +368,34 @@ if 'results' in st.session_state:
 
                     segmentation_mask[object_mask == 0] = -1
                     visualization[object_mask == 0] = 0
+            point = streamlit_image_coordinates(st.session_state.results[path]["visualization"])
+            num_cols = 2
 
-            st.session_state.results[path]["segmentation_mask"] = segmentation_mask
-            st.session_state.results[path]["visualization"] = visualization
+            with st.container():
+                cols = st.columns(num_cols)
 
-            if certainty_image is not None:
-                st.session_state.results[path]["certainty"] = certainty_image
-            point = streamlit_image_coordinates(visualization)
-
-            if umap_model_folder:
-                region_visualization = st.session_state.results[path]["visualization"].copy()
-                mask = st.session_state.results[path]["nmf_segmentation_mask"] == int(region_selectbox)
+                region_visualization = st.session_state.results[path]["visualization"].copy()                    
+                mask = np.uint8(segmentation_mask_argmax == int(region_selectbox)) * 255
                 region_visualization[mask == 0] = 0
-                st.image(region_visualization)
+                cols[0].text('Selected Region')
+                cols[0].image(region_visualization)
 
-            if point is not None:
-                if path in st.session_state.coordinates and point in [p for p in st.session_state.coordinates[path]]:
-                    pass
-                else:
-                    st.session_state.coordinates[path].append(point)
-                    st.session_state.coordinates[path] = st.session_state.coordinates[path][-2 : ]
+                if point is not None:
+                    if path in st.session_state.coordinates and point in [p for p in st.session_state.coordinates[path]]:
+                        pass
+                    else:
+                        st.session_state.coordinates[path].append(point)
+                        st.session_state.coordinates[path] = st.session_state.coordinates[path][-2 : ]
 
-            if certainty_image is not None:
-                st.text('Clustering Certainty')
-                st.image(np.uint8(255*certainty_image))
+                cols[1].text('Visualizaiton Confidence')
+                cols[1].image(np.uint8(255*st.session_state.results[path]["certainty_image"]))
 
 if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
     images = []
-    segmentation_mask = st.session_state.results[image_to_show]["segmentation_mask"]
     visualization = st.session_state.results[image_to_show]["visualization"]
     for point in st.session_state.coordinates[image_to_show]:
         x, y = int(point['x']), int(point['y'])
-        heatmap = visualizations.get_mask(visualization, segmentation_mask, x, y)
+        heatmap = visualizations.get_mask(visualization, segmentation_mask_for_comparisons, x, y)
         images.append(heatmap)
     st.session_state.latest_heatmaps = images
     with st.container():
@@ -330,7 +405,6 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
             ((not objects_mode) and len(st.session_state.coordinates[image_to_show]) > 1):
                 with st.spinner(text="Comparing regions.."):
                     mz_image = st.session_state.results[image_to_show]["mz_image"]
-                    segmentation_mask = st.session_state.results[image_to_show]["segmentation_mask"]
                     visualization = st.session_state.results[image_to_show]["visualization"]
 
                     if 'difference_visualizations' not in st.session_state or st.session_state.difference_visualizations is None:
@@ -342,7 +416,7 @@ if image_to_show and st.session_state.coordinates and image_to_show in st.sessio
                     if image_to_show not in st.session_state.difference_visualizations or st.session_state['current_color_scheme'] != current_color_scheme:
                         save_to_cache()
                         diff = visualizations.RegionComparison(mz_image,
-                                                               segmentation_mask,
+                                                               segmentation_mask_for_comparisons,
                                                                visualization,
                                                                start_mz=st.session_state.extraction_start_mz,
                                                                bins_per_mz=st.session_state.bins)

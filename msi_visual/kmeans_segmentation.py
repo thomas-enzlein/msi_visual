@@ -28,8 +28,6 @@ class KmeansSegmentation:
         centroids = self.model.cluster_centers_
 
         similarity = cosine_similarity(np.array(centroids), np.array(vector))
-        print(similarity.shape, "similarity")
-
         self.training_components = similarity
     
     def get_colors(self, color_scheme='gist_rainbow'):
@@ -74,12 +72,23 @@ class KmeansSegmentation:
 
         return segmentation
 
-    def visualize_factorization(self, img, contributions, color_scheme='gist_rainbow', method='spatial_norm'):
-        spatial_sum_visualization, global_percentile_visualization, normalized_sum, normalized_percentile = visualizations_from_explanations(img, contributions, self.get_colors(color_scheme))
+    def visualize_factorization(self,
+                                img,
+                                contributions,
+                                color_scheme='gist_rainbow',
+                                method='spatial_norm',
+                                certainty_image=None,
+                                region_factors=None):
+        spatial_sum_visualization, global_percentile_visualization, normalized_sum, normalized_percentile = \
+            visualizations_from_explanations(img,
+                                             contributions,
+                                             self.get_colors(color_scheme),
+                                             intensity_image=certainty_image,
+                                             factors=region_factors)
         if method == 'spatial_norm':
-            return normalized_sum, spatial_sum_visualization
+            return normalized_sum, spatial_sum_visualization, contributions
         else:
-            return normalized_percentile, global_percentile_visualization
+            return normalized_percentile, global_percentile_visualization, contributions
 
     def predict(self, img, color_scheme='gist_rainbow', method='spatial_norm'):
         contributions = self.factorize(img)

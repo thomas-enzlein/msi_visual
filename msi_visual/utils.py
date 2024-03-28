@@ -3,7 +3,6 @@ from sklearn.decomposition import non_negative_factorization
 from matplotlib import pyplot as plt
 from collections import defaultdict
 from scipy.stats import entropy
-from msi_visual.visualizations import get_colors, visualizations_from_explanations
 
 def brain_nmf_semantic_segmentation(img_path_for_segmentation: str, H_path: str = "h_cosegmentation.npy", NUM_COMPONENTS:int = 5) -> np.ndarray:
     colors_for_components = get_colors(NUM_COMPONENTS)
@@ -58,15 +57,13 @@ def image_histogram_equalization(image, mask, number_bins=256):
 
     return image_equalized.reshape(image.shape)
 
-def get_certainty(segmentation, img):
-    #normalized = segmentation - segmentation.min()
-    print("segmentation", segmentation.min(), segmentation.max(), segmentation  .shape)
+def get_certainty(segmentation):
     normalized = segmentation / (1e-6 + segmentation.sum(axis=0))
-    print("normalized", normalized.min(), normalized.max(), normalized.shape)
-    print(normalized)
-    print(normalized[:, 100, 100])
     e = entropy(normalized, axis=0, base=normalized.shape[0])
     e = 1 - e
-    e[img.max(axis=-1) == 0] = 0
-    print("entropy", e.min(), e.max(), e.shape)
     return e
+
+def set_region_importance(segmentation_mask, factors):
+    for label, factor in factors.items():
+        segmentation_mask[label, :, :] = segmentation_mask[label, :, :] * factor 
+    return segmentation_mask
