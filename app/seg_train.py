@@ -16,6 +16,7 @@ from msi_visual.app_utils.extraction_info import display_paths_to_extraction_pat
 
 # Either this or add_indentation() MUST be called on each page in your
 # app to add indendation in the sidebar
+
 add_page_title()
 
 show_pages_from_config()
@@ -44,12 +45,12 @@ with st.sidebar:
         start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz, step=50)
         #start_mz = st.number_input('Start m/z', min_value=0, value=300, step=50)
         end_mz = st.number_input('End m/z', min_value=100, value=None, step=50)
-        number_of_components = st.number_input('Number of components', min_value=2, max_value=100, value=5, step=5)
+        number_of_components = st.number_input('Number of components (k)', min_value=2, max_value=100, value=5, step=5)
         output_path_default = "E:\\MSImaging-data\\_msi_visual\\" + model_type + "-models\\model.joblib"
         output_path = st.text_input('Output path for segmentation model', value=output_path_default)
         sub_sample = st.number_input('Subsample pixels', value=None)
 
-start = st.button("Train segmentation")
+start = st.button("Train " + model_type + " segmentation")
 if start:
 
     extraction_args = eval(open(Path(extraction_folder) / "args.txt").read())
