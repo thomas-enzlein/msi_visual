@@ -54,7 +54,7 @@ def make_hashable(o):
 def get_settings():
     return {'Extraction Root Folder': extraction_root_folder,
      'Extraction folder': selected_extraction,
-     'Regions to include': regions,
+     'Slide ROI to include': regions,
      'Model folder': nmf_model_folder,
      'confidence_thresholds': st.session_state.confidence_thresholds,
      'UMAP Model folder (optional)': umap_model_folder,
@@ -235,19 +235,20 @@ try:
     colorschemes = list(colormaps)
     with st.sidebar:
         st.divider()
-        if combination_method != "SpectrumHeatmap":
+        if combination_method != "Spectrum-Heatmap":
                 region_selectbox = 0
                 if image_to_show:
-                    region_selectbox = st.selectbox(f"Region to control", [i for i in range(model.k)], index=0)
+                    region_selectbox = st.selectbox(f"k-segment to control", [i for i in range(model.k)], index=0)
                 
                 
                 region_default = 1.0
                 if region_selectbox in st.session_state.region_importance:
                     region_default = st.session_state.region_importance[int(region_selectbox)]
-                region_factor = st.slider(label=f'Weight: Region {region_selectbox}',
+                region_factor = st.slider(label=f'Weight of k-segment: {region_selectbox}',
                                         min_value=0.0,
-                                        max_value=10.0,
-                                        value=region_default)
+                                        max_value=4.0,
+                                        value=region_default,
+                                        step=0.1)
 
 
                 if combination_method != "Segmentation":
@@ -418,7 +419,7 @@ try:
                         region_visualization = st.session_state.results[path]["visualization"].copy()                    
                         mask = np.uint8(segmentation_mask_argmax == int(region_selectbox)) * 255
                         region_visualization[mask == 0] = 0
-                        cols[0].text('Selected Region')
+                        cols[0].text('Selected k-segment')
                         cols[0].image(region_visualization)
 
                         if point is not None:
@@ -429,7 +430,7 @@ try:
                                 st.session_state.coordinates[path] = st.session_state.coordinates[path][-2 : ]
 
                         if st.session_state.results[path]["certainty_image"] is not None:
-                            cols[1].text('Visualizaiton Confidence')
+                            cols[1].text('Visualization of Confidence')
                             cols[1].image(np.uint8(255*st.session_state.results[path]["certainty_image"]))
 
     if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
