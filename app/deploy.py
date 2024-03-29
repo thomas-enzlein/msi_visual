@@ -231,7 +231,8 @@ try:
         #if combination_method == "Seg+UMAP":
         umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
         st.session_state.umap_model_folder = umap_model_folder
-        output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
+        output_normalization = st.radio("Select segmentation normalisation", ['spatial_norm', 'None'])
+        #output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
         sub_sample = st.number_input('Subsample pixels', value=None)
         
         #objects_mode = st.checkbox('Objects mode')
@@ -325,7 +326,7 @@ try:
                     st.session_state.region_importance[int(region_selectbox)] = region_factor
 
                 st.divider()
-                certainty_slider = st.slider('Confidence threshold range', 0.0, 1.0, (0.0, 1.0))
+                certainty_slider = st.slider('Confidence threshold range', 0.0, 1.0, (0.0, 1.0), step=0.05,)
                 st.session_state['confidence_thresholds'] = certainty_slider
         else:
             region_colorscheme = st.selectbox(f"Color Scheme", colorschemes, index = colorschemes.index("gist_rainbow"))
