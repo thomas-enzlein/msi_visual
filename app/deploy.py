@@ -280,6 +280,9 @@ try:
                     st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
                     st.session_state.region_importance[int(region_selectbox)] = region_factor
 
+                if st.button('Reset to factory settings'):
+                    st.session_state.color_schemes = ["gist_yarg"] * 100
+                    st.session_state.region_importance = {}
 
                 st.divider()
                 certainty_slider = st.slider('Confidence Thresholds', 0.0, 1.0, (0.0, 1.0))
