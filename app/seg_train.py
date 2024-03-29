@@ -24,14 +24,10 @@ if 'bins' not in st.session_state:
 
 
 with st.sidebar:    
-    model_type = st.radio(
-        "Select segmentation method 👉",
-        key="model",
-        options=["NMF", "Kmeans"],)
-
+    model_type = st.radio("Segmentation method", key="model",options=["NMF", "Kmeans"],)
     #model_type = st.selectbox("Model Type", ["NMF", "Kmeans"], index=0)
     
-    extraction_root_folder = st.text_input("Extraction Root Folder", value="E:\MSImaging-data\\")
+    extraction_root_folder = st.text_input("Extraction Root Folder", value="E:\\MSImaging-data\\")
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
 
@@ -49,7 +45,8 @@ with st.sidebar:
         #start_mz = st.number_input('Start m/z', min_value=0, value=300, step=50)
         end_mz = st.number_input('End m/z', min_value=100, value=1350, step=50)
         number_of_components = st.number_input('Number of components', min_value=2, max_value=100, value=5, step=5)
-        output_path = st.text_input('Output path for segmentation model', 'models/model.joblib')
+        output_path_default = "E:\\MSImaging-data\\_msi_visual\\" + model_type + "-models\\model.joblib"
+        output_path = st.text_input('Output path for segmentation model', value=output_path_default)
         sub_sample = st.number_input('Subsample pixels', value=None)
 
 start = st.button("Train segmentation")
