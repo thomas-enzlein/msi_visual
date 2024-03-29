@@ -251,7 +251,7 @@ try:
     colorschemes = list(colormaps)
     with st.sidebar:
         st.divider()
-        if combination_method != "Spectrum-Heatmap":
+        if combination_method != "SpectrumHeatmap":
                 region_selectbox = 0
                 if image_to_show:
                     region_selectbox = st.selectbox(f"k-segment to control", [i for i in range(model.k)], index=0)
@@ -273,7 +273,15 @@ try:
                         default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
                     region_colorscheme = st.selectbox(f"Color Scheme k-segment ({region_selectbox})", colorschemes, index=default)
 
-                    if st.button("Export color scheme"):
+                    col1, col2 = st.columns(2)
+
+                    with col1:
+                        exportbutton=st.button("Export color scheme")
+                        
+                    with col2:
+                        importbutton=st.button("Import color scheme")
+                    
+                    if exportbutton:
                         dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
                         if dialog.ShowModal() == wx.ID_OK:
                             export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
@@ -282,7 +290,7 @@ try:
                                                 'region_weights': st.session_state.region_importance}
                                 json.dump(data_to_save, f)
 
-                    if st.button("Import color scheme"):
+                    if importbutton:
                         dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
                         if dialog.ShowModal() == wx.ID_OK:
                             export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
@@ -303,16 +311,16 @@ try:
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    button1=st.button('Re-set')
+                    resetbutton=st.button('Re-set')
 
                 with col2:
-                    button2=st.button('Update Region Settings')                    
+                    updatebutton=st.button('Update color scheme')                    
                     
-                if button1:
+                if resetbutton:
                     st.session_state.color_schemes = ["gist_yarg"] * 100
                     st.session_state.region_importance = {}
 
-                if button2:
+                if updatebutton:
                     st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
                     st.session_state.region_importance[int(region_selectbox)] = region_factor
 
