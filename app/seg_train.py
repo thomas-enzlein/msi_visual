@@ -44,7 +44,6 @@ with st.sidebar:
             st.session_state.extraction_end_mz = extraction_args.end_mz
 
         start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz, step=50)
-        #start_mz = st.number_input('Start m/z', min_value=0, value=300, step=50)
         end_mz = st.number_input('End m/z', min_value=100, value=1350, step=50)
         number_of_components = st.number_input('Number of components', min_value=2, max_value=100, value=5, step=5)
         output_path = st.text_input('Output path for segmentation model', 'models/model.joblib')
