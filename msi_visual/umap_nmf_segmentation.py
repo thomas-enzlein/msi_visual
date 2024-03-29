@@ -12,11 +12,11 @@ class SegmentationUMAPVisualization:
         self.k = self.segmentation_model.k
 
     def factorize(self, img):
-        self.umap_1d = self.umap_model.predict(img)[:, :, 0]
+        umap_1d = self.umap_model.predict(img)[:, :, 0]
         self.segmentation = self.segmentation_model.factorize(img)
-        return self.segmentation
+        return self.segmentation, umap_1d
 
-    def get_subsegmentation(self, img, roi_mask, segmentation, number_of_bins_for_comparison):
+    def get_subsegmentation(self, img, roi_mask, segmentation, umap_1d, number_of_bins_for_comparison):
         segmentation_argmax = segmentation.argmax(axis=0)
 
         regions = np.unique(segmentation_argmax)
@@ -27,7 +27,7 @@ class SegmentationUMAPVisualization:
         for region in regions:
             region_mask = np.uint8(segmentation_argmax == region) * 255
             region_mask[roi_mask == 0] = 0
-            region_umap = self.umap_1d.copy()
+            region_umap = umap_1d.copy()
             region_umap[region_mask == 0] = 0
 
             region_umap = normalize_image_grayscale(region_umap, high_percentile=99)
@@ -44,6 +44,7 @@ class SegmentationUMAPVisualization:
     def visualize_factorization(self,
                                 img,
                                 segmentation,
+                                umap_1d,
                                 roi_mask,
                                 color_scheme_per_region,
                                 method='spatial_norm',
@@ -55,7 +56,7 @@ class SegmentationUMAPVisualization:
                                                         method=method,
                                                         region_factors=region_factors)
         segmentation_argmax = segmentation.argmax(axis=0)
-        sub_segmentation, region_umaps = self.get_subsegmentation(img, roi_mask, segmentation, number_of_bins_for_comparison)
+        sub_segmentation, region_umaps = self.get_subsegmentation(img, roi_mask, segmentation, umap_1d, number_of_bins_for_comparison)
         regions = np.unique(segmentation_argmax)
         # Create the colorful image
         visualizations = []
