@@ -58,7 +58,7 @@ def get_image(
         output_path: str,
         region: int = 0,
         min_mz: int = 300,
-        max_mz: int = 1300,
+        max_mz: int = 1350,
         tol: Optional[float] = None,
         bins_per_mz: int = 1):
     tsf = tsfdata.TsfData(path)

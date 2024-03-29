@@ -37,11 +37,11 @@ if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
 with st.sidebar:
-    extraction_root_folder = st.text_input("Extraction Root Folder")
+    extraction_root_folder = st.text_input("Extraction Root Folder", value="E:\MSImaging-data\\")
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
 
-        selected_extraction = st.selectbox('Extration folder', extraction_folders.keys())
+        selected_extraction = st.selectbox('Extraction folder', extraction_folders.keys())
         if selected_extraction:
             extraction_folder = extraction_folders[selected_extraction]
             regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
@@ -51,10 +51,11 @@ with st.sidebar:
             st.session_state.extraction_start_mz = extraction_args.start_mz
             st.session_state.extraction_end_mz = extraction_args.end_mz
 
-    start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz)
-    end_mz = st.number_input('End m/z', value=None)
-    output_path = st.text_input('Output Folder')
-    sub_sample = st.number_input('Subsample pixels', value=None)
+        start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz, step=50)
+        #start_mz = st.number_input('Start m/z', min_value=0, value=300, step=50)
+        end_mz = st.number_input('End m/z', min_value=100, value=1350, step=50)
+        output_path = st.text_input('Output Folder')
+        sub_sample = st.number_input('Subsample pixels', value=None)
 
 
 start = st.button("Train 1D Parametric UMAP")
