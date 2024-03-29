@@ -228,11 +228,9 @@ try:
         combination_method = st.radio('Color Coding Method',
                                     ["Segmentation", "Seg+UMAP", "Seg+SpectrumHeatmap", "SpectrumHeatmap"], index=0)
         
-        #if combination_method == "Seg+UMAP":
         umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
         st.session_state.umap_model_folder = umap_model_folder
-        output_normalization = st.radio("Select segmentation normalisation", ['spatial_norm', 'None'])
-        #output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
+        output_normalization = st.radio("Select segmentation normalization", ['spatial_norm', 'None'])
         sub_sample = st.number_input('Subsample pixels', value=None)
         
         #objects_mode = st.checkbox('Objects mode')
@@ -424,7 +422,6 @@ try:
                     certainty_image= None
                     if combination_method != "SpectrumHeatmap":
                         certainty_image = get_certainty(segmentation_mask)
-                        #certainty_image = segmentation_mask.max(axis=0)
                         certainty_image[img.max(axis=-1) == 0] = 0
                         certainty_image = np.uint8(certainty_image * 255)
                         certainty_image = cv2.equalizeHist(certainty_image)

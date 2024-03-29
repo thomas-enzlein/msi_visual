@@ -28,8 +28,6 @@ with st.sidebar:
         "Select segmentation method 👉",
         key="model",
         options=["NMF", "Kmeans"],)
-
-    #model_type = st.selectbox("Model Type", ["NMF", "Kmeans"], index=0)
     
     extraction_root_folder = st.text_input("Extraction Root Folder", value="E:\MSImaging-data\\")
     if extraction_root_folder:
