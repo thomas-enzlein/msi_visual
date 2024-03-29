@@ -16,10 +16,10 @@ class SegmentationAvgMZVisualization:
 
         mz = np.arange(processed_img.shape[-1])
         mz = mz[None, None, :]
-        self.avgmz = (processed_img * mz).mean(axis=-1)
-        return self.segmentation
+        avgmz = (processed_img * mz).mean(axis=-1)
+        return self.segmentation, avgmz
 
-    def get_subsegmentation(self, img, roi_mask, segmentation, number_of_bins_for_comparison):
+    def get_subsegmentation(self, img, roi_mask, segmentation, avgmz, number_of_bins_for_comparison):
         segmentation_argmax = segmentation.argmax(axis=0)
 
         regions = np.unique(segmentation_argmax)
@@ -30,7 +30,7 @@ class SegmentationAvgMZVisualization:
         for region in regions:
             region_mask = np.uint8(segmentation_argmax == region) * 255
             region_mask[roi_mask == 0] = 0
-            region_heatmap = self.avgmz.copy()
+            region_heatmap = avgmz.copy()
             region_heatmap[region_mask == 0] = 0
 
             region_heatmap = normalize_image_grayscale(region_heatmap, high_percentile=99)
@@ -47,6 +47,7 @@ class SegmentationAvgMZVisualization:
     def visualize_factorization(self,
                                 img,
                                 segmentation,
+                                avgmz,
                                 roi_mask,
                                 color_scheme_per_region,
                                 method='spatial_norm',
@@ -58,7 +59,7 @@ class SegmentationAvgMZVisualization:
                                                         method=method,
                                                         region_factors=region_factors)
         segmentation_argmax = segmentation.argmax(axis=0)
-        sub_segmentation, region_umaps = self.get_subsegmentation(img, roi_mask, segmentation, number_of_bins_for_comparison)
+        sub_segmentation, region_umaps = self.get_subsegmentation(img, roi_mask, segmentation, avgmz, number_of_bins_for_comparison)
         regions = np.unique(segmentation_argmax)
         # Create the colorful image
         visualizations = []

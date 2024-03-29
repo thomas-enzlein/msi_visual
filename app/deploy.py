@@ -1,6 +1,7 @@
 import streamlit as st
 import glob
 import os
+import traceback
 import datetime
 import json
 import sys
@@ -70,6 +71,46 @@ def get_settings_hash():
     settings = get_settings()
     return make_hash_sha256(settings)
 
+def model_hash():
+    settings = {'umap_model_folder': st.session_state.umap_model_folder, 
+                'nmf_model_folder': st.session_state.nmf_model_folder}
+    return make_hash_sha256(settings)
+
+def get_model():
+    if nmf_model_name:
+        if st.session_state['segmentation_model'] is None:
+            nmf_model_path = [p for p in nmf_model_paths if Path(p).stem == nmf_model_name][0]
+            model = joblib.load(open(nmf_model_path, 'rb'))
+            st.session_state['segmentation_model'] = model
+        else:
+            model = st.session_state['segmentation_model']
+    
+    if combination_method == "Seg+UMAP":
+        if umap_model_folder:
+            if st.session_state['model'][combination_method] is None:
+                umap = parametric_umap.UMAPVirtualStain()
+                umap.load(umap_model_folder)        
+                model = SegmentationUMAPVisualization(umap, model)
+            else:
+                model = st.session_state['model'][combination_method]
+        else:
+            model = None
+    
+    elif combination_method == "Seg+SpectrumHeatmap":
+        if st.session_state['model'][combination_method] is None:
+            model = SegmentationAvgMZVisualization(model)
+        else:
+            model = st.session_state['model'][combination_method]
+    elif combination_method == "SpectrumHeatmap":
+        if st.session_state['model'][combination_method] is not None:
+            model = AvgMZVisualization()
+        else:
+            model = st.session_state['model'][combination_method]
+    
+    if model is not None:
+        st.session_state['model'][combination_method] = model
+    return model
+
 def save_data():
     if image_to_show:
         folder = datetime.datetime.today().strftime('%Y-%m-%d')
@@ -106,6 +147,11 @@ else:
 app = wx.App()
 wx.DisableAsserts()
 
+if 'umap_model_folder' not in st.session_state:
+    st.session_state.umap_model_folder = None
+if 'nmf_model_folder' not in st.session_state:
+    st.session_state.nmf_model_folder = None
+
 if 'color_schemes' not in st.session_state:
     st.session_state.color_schemes = cached_state['color_schemes']
 if st.session_state.color_schemes == '':
@@ -113,11 +159,18 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 if 'model' not in st.session_state:
-    st.session_state.model = {'Seg+SpectrumHeatmap': {}, 'Seg+UMAP': {}, "Segmentation": {}, "SpectrumHeatmap": {}}
-    st.session_state.segmentation_model = {}
+    st.session_state.model = {'Seg+SpectrumHeatmap': None,
+                              'Seg+UMAP': None,
+                              "Segmentation": None,
+                              "SpectrumHeatmap": None}
+    
+    st.session_state.segmentation_model = None
 
 if 'setting_hash' not in st.session_state:
     st.session_state.setting_hash = None
+
+if 'model_hash' not in st.session_state:
+    st.session_state.model_hash = None
 
 
 results = {}
@@ -170,12 +223,14 @@ try:
                 else:
                     default = None
             nmf_model_name = st.selectbox('Segmentation model', nmf_model_display_paths, index=default)
+            st.session_state.nmf_model_path = nmf_model_path
 
         combination_method = st.radio('Color Coding Method',
                                     ["Segmentation", "Seg+UMAP", "Seg+SpectrumHeatmap", "SpectrumHeatmap"], index=0)
         
         #if combination_method == "Seg+UMAP":
         umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
+        st.session_state.umap_model_folder = umap_model_folder
         output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
         sub_sample = st.number_input('Subsample pixels', value=None)
         
@@ -187,50 +242,11 @@ try:
         image_to_show = st.selectbox('Image to show', list(regions), key = st.session_state.run_id)
 
     if image_to_show is not None:
-        st.write(combination_method)
-        if nmf_model_name:
-            if image_to_show not in st.session_state['segmentation_model']:
-                nmf_model_path = [p for p in nmf_model_paths if Path(p).stem == nmf_model_name][0]
-                model = joblib.load(open(nmf_model_path, 'rb'))
-                st.session_state['segmentation_model'][image_to_show] = model
-            else:
-                model = st.session_state['segmentation_model'][image_to_show]
-        
-        if combination_method == "Seg+UMAP":
-            if umap_model_folder:
-                print(st.session_state['model'][combination_method])
-                print(combination_method)
-                print("****")
-                if image_to_show not in st.session_state['model'][combination_method]:
-                    umap = parametric_umap.UMAPVirtualStain()
-                    umap.load(umap_model_folder)        
-                    model = SegmentationUMAPVisualization(umap, model)
-                else:
-                    model = st.session_state['model'][combination_method][image_to_show]
-            else:
-                model = None
-        
-        elif combination_method == "Seg+SpectrumHeatmap":
-            print("combination_method", combination_method)
-            if image_to_show not in st.session_state['model'][combination_method]:
-                model = SegmentationAvgMZVisualization(model)
-            else:
-                model = st.session_state['model'][combination_method][image_to_show]
-        elif combination_method == "SpectrumHeatmap":
-            if image_to_show not in st.session_state['model'][combination_method]:
-                model = AvgMZVisualization()
-            else:
-                model = st.session_state['model'][combination_method][image_to_show]
-        
-        if model is not None:
-            print(f"writing {model} tp {combination_method}")
-            st.session_state['model'][combination_method][image_to_show] = model
+        if model_hash() != st.session_state.model_hash:
+            st.session_state.model_hash = model_hash
 
-    # Delete previous models
-    for path in st.session_state['model'][combination_method]:
-        if image_to_show != path:
-            del st.session_state['model'][combination_method][path]
-            del st.session_state['segmentation_model'][path]
+        model = get_model()
+        st.write(combination_method)
 
     colorschemes = list(colormaps)
     with st.sidebar:
@@ -262,14 +278,21 @@ try:
                         if dialog.ShowModal() == wx.ID_OK:
                             export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
                             with open(export_path, 'w') as f:
-                                json.dump(st.session_state.color_schemes, f)
+                                data_to_save = {'color_schemes': st.session_state.color_schemes,
+                                                'region_weights': st.session_state.region_importance}
+                                json.dump(data_to_save, f)
 
                     if st.button("Import color scheme"):
                         dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
                         if dialog.ShowModal() == wx.ID_OK:
                             export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
                             with open(export_path, 'r') as f:
-                                st.session_state.color_schemes = json.load(f)
+                                loaded_data = json.load(f)
+                                if 'color_schemes' in loaded_data:
+                                    st.session_state.color_schemes = loaded_data['color_schemes']
+                                    st.session_state.region_importance = loaded_data['region_weights']
+                                else:
+                                    st.session_state.color_schemes = loaded_data
                     
                     current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
 
@@ -330,12 +353,17 @@ try:
                 
                 results = {}
                 results["mz_image"] = img
-                results["segmentation"] = model.factorize(img)
+
+                if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
+                    results["segmentation"], results["heatmap"] = model.factorize(img)
+                else:
+                    results["segmentation"] = model.factorize(img)
+                
                 st.session_state.results[path] = results
 
     if 'results' in st.session_state:
         for path, data in st.session_state.results.items():
-            if path in image_to_show:
+            if path == image_to_show:
                 img = data["mz_image"]
                 segmentation_mask = data["segmentation"].copy()     
                 
@@ -354,6 +382,7 @@ try:
                     if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
                         segmentation_mask, sub_segmentation_mask, visualization = model.visualize_factorization(img,
                                                                         segmentation_mask,
+                                                                        data["heatmap"],
                                                                         roi_mask,
                                                                         color_scheme_per_region=st.session_state.color_schemes,
                                                                         method=output_normalization,
@@ -504,3 +533,4 @@ try:
             st.image(visualizations.create_ion_image(mz_image, val))
 except Exception as e:
     print(e)
+    
