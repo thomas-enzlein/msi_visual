@@ -235,7 +235,7 @@ try:
     colorschemes = list(colormaps)
     with st.sidebar:
         st.divider()
-        if combination_method != "Spectrum-Heatmap":
+        if combination_method != "SpectrumHeatmap":
                 region_selectbox = 0
                 if image_to_show:
                     region_selectbox = st.selectbox(f"k-segment to control", [i for i in range(model.k)], index=0)
@@ -256,7 +256,6 @@ try:
                     if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
                         default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
                     region_colorscheme = st.selectbox(f"Color Scheme k-segment ({region_selectbox})", colorschemes, index=default)
-
 
                     col1, col2 = st.columns(2)
 
@@ -289,16 +288,16 @@ try:
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    resetbutton1=st.button('Re-set')
+                    resetbutton=st.button('Re-set')
 
                 with col2:
-                    updatebutton2=st.button('Update Region Settings')                    
+                    updatebutton=st.button('Update color scheme')                    
                     
-                if resetbutton1:
+                if resetbutton:
                     st.session_state.color_schemes = ["gist_yarg"] * 100
                     st.session_state.region_importance = {}
 
-                if updatebutton2:
+                if updatebutton:
                     st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
                     st.session_state.region_importance[int(region_selectbox)] = region_factor
 
