@@ -37,7 +37,7 @@ if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
 with st.sidebar:
-    extraction_root_folder = st.text_input("Extraction Root Folder", value="E:\MSImaging-data\\")
+    extraction_root_folder = st.text_input("Extraction Root Folder", value="E:\\MSImaging-data\\")
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
 
@@ -53,7 +53,7 @@ with st.sidebar:
 
         start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz, step=50)
         #start_mz = st.number_input('Start m/z', min_value=0, value=300, step=50)
-        end_mz = st.number_input('End m/z', min_value=100, value=1350, step=50)
+        end_mz = st.number_input('End m/z', min_value=100, value=None, step=50)
         output_path = st.text_input('Output Folder')
         sub_sample = st.number_input('Subsample pixels', value=None)
 
