@@ -511,7 +511,7 @@ try:
                         region_visualization[mask == 0] = 0
                         st.session_state.k_seg = (region_selectbox, region_visualization)
 
-                        cols[0].text('Selected Region {region_selectbox}')
+                        cols[0].text(f'Selected Region {region_selectbox}')
                         cols[0].image(region_visualization)
 
                         if point is not None:
