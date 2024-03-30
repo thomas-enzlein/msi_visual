@@ -58,6 +58,8 @@ with st.sidebar:
         
         output_path = st.text_input('Output path for segmentation model', value=output_path_default)
         sub_sample = st.number_input('Subsample pixels', value=None)
+    
+    normalizaiton = st.selectbox('Normalization', ['tic', 'spatial_tic'], index=0)
 
 start = st.button("Train " + model_type + " segmentation")
 if start:
@@ -80,10 +82,8 @@ if start:
 
     if model_type == "NMF":
         seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
-    if model_type == "Kmeans":
-        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
     else:
-        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
 
     if sub_sample:
         images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]
