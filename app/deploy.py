@@ -559,7 +559,7 @@ try:
                                                         model.k)
                     current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
 
-                elif st.button('Area based colorization'):
+                if st.button('Area based colorization'):
                     colorization = AutoColorizeArea(json.load(open("auto_color_schemes.json")))
                     st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
                                                         result["segmentation_mask_argmax"],
