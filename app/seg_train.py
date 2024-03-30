@@ -23,12 +23,13 @@ show_pages_from_config()
 if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
-
 with st.sidebar:    
     model_type = st.radio("Segmentation method", key="model",options=["NMF", "Kmeans"],)
-    #model_type = st.selectbox("Model Type", ["NMF", "Kmeans"], index=0)
-    
-    extraction_root_folder = st.text_input("Extraction Root Folder", value="E:\\MSImaging-data\\")
+        
+    #extraction_root_folder_default -> change to cache or setup later
+    extraction_root_folder_default = "E:\\MSImaging-data\\"
+
+    extraction_root_folder = st.text_input("Extraction Root Folder", value=extraction_root_folder_default)
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
 
