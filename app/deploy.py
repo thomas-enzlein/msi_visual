@@ -233,7 +233,7 @@ try:
         st.session_state.umap_model_folder = umap_model_folder
         output_normalization = st.radio("Select segmentation normalisation", ['spatial_norm', 'None'])
         #output_normalization = st.selectbox('Segmentation Output Normalization', ['spatial_norm', 'None'])
-        sub_sample = st.number_input('Subsample pixels', value=None)
+        sub_sample = st.number_input('Subsample pixels', min_value=1, value=None, step=1)
         
         #objects_mode = st.checkbox('Objects mode')
         #objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])

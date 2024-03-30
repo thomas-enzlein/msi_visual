@@ -54,8 +54,9 @@ with st.sidebar:
         start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz, step=50)
         #start_mz = st.number_input('Start m/z', min_value=0, value=300, step=50)
         end_mz = st.number_input('End m/z', min_value=100, value=None, step=50)
-        output_path = st.text_input('Output Folder')
-        sub_sample = st.number_input('Subsample pixels', value=None)
+        output_path_default = "E:\\MSImaging-data\\_msi_visual\\UMAP-models\\model.joblib"
+        output_path = st.text_input('Output path for segmentation model', value=output_path_default)
+        sub_sample = st.number_input('Subsample pixels', value=None, step=1)
 
 
 start = st.button("Train 1D Parametric UMAP")
