@@ -115,6 +115,7 @@ def get_model():
 def auto_colorization():
     result = st.session_state.results[path]
     if "heatmap" in result:
+        st.title('Auto Colorization 🎨')
         low_var_ratio = st.slider('Fraction', 0.0, 1.0, step=0.05, value=0.5)
         if st.button('Random Colorization'):
             colorization = AutoColorizeRandom(json.load(open("auto_color_schemes.json")))
