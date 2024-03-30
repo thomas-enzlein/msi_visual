@@ -154,7 +154,7 @@ def save_data():
 
         if 'ion_image' in st.session_state:
             mz, ion_image = st.session_state.ion_image
-            Image.fromarray(ion_image).save(Path(folder) / f"{image_name}_mz_{mz:.4f}.png")
+            Image.fromarray(ion_image).save(Path(folder) / f"{image_name}_mz_{mz}.png")
 
         if 'k_seg' in st.session_state:
             k_index, k_seg = st.session_state.k_seg
@@ -581,7 +581,7 @@ try:
             mz_image = st.session_state.results[image_to_show]["mz_image"]
             val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
             mz_img = visualizations.create_ion_image(mz_image, val)
-            st.session.ion_image = (mz, mz_img)
+            st.session_state.ion_image = (mz, mz_img)
             st.image(mz_img)
     
     save_data()
