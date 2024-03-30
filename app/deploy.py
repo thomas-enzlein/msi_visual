@@ -30,6 +30,7 @@ from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 from msi_visual.avgmz_nmf_segmentation import SegmentationAvgMZVisualization
 from msi_visual.avgmz import AvgMZVisualization
+from msi_visual.auto_colorization import AutoColorizeRandom, AutoColorizeArea
 importlib.reload(visualizations)
 import hashlib
 import base64
@@ -187,6 +188,7 @@ try:
     umap_model_folder, nmf_model_path, nmf_model_name = None, None, None
     region_colorscheme = None
     with st.sidebar:
+        st.title('Data Source')
         extraction_root_folder = st.text_input('Extraction Root Folder', value=cached_state["Extraction Root Folder"])
         if extraction_root_folder:
             extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
@@ -207,7 +209,7 @@ try:
                 regions = st.multiselect('Regions to include', region_list,  default=default)
         
         st.divider()
-        
+        st.title('Model Settings')
         nmf_model_folder = st.text_input('Model folder', value=cached_state['Model folder'])
         if nmf_model_folder:
             nmf_model_paths = list(glob.glob(nmf_model_folder + "\\*.joblib")) \
@@ -250,6 +252,7 @@ try:
     colorschemes = list(colormaps)
     with st.sidebar:
         st.divider()
+        st.title('Region Settings')
         if combination_method != "SpectrumHeatmap":
                 region_selectbox = 0
                 if image_to_show:
@@ -322,8 +325,9 @@ try:
                 if updatebutton:
                     st.session_state.color_schemes[int(region_selectbox)] = region_colorscheme
                     st.session_state.region_importance[int(region_selectbox)] = region_factor
-
+                            
                 st.divider()
+                st.title('Segmentation Confidence')
                 certainty_slider = st.slider('Confidence threshold range', 0.0, 1.0, (0.0, 1.0), step=0.05,)
                 st.session_state['confidence_thresholds'] = certainty_slider
         else:
@@ -426,6 +430,7 @@ try:
                         certainty_image = np.uint8(certainty_image * 255)
                         certainty_image = cv2.equalizeHist(certainty_image)
                         certainty_image = np.float32(certainty_image) / 255
+                    
 
                     st.session_state.results[path]["certainty_image"] = certainty_image
                     st.session_state.results[path]["segmentation_mask"] = segmentation_mask
@@ -537,6 +542,32 @@ try:
             mz_image = st.session_state.results[image_to_show]["mz_image"]
             val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
             st.image(visualizations.create_ion_image(mz_image, val))
+
+    if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
+        if 'results' in st.session_state and image_to_show in st.session_state['results']:
+            with st.sidebar:
+                result = st.session_state['results'][image_to_show]
+                st.divider()
+                low_var_ratio = st.slider('Fraction', 0.0, 1.0, step=0.05, value=0.5)
+                if st.button('Random Colorization'):
+                    colorization = AutoColorizeRandom(json.load(open("auto_color_schemes.json")))
+                    st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
+                                                        result["segmentation_mask_argmax"],
+                                                        result["heatmap"],
+                                                        low_var_ratio,
+                                                        model.k)
+                    current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
+
+                elif st.button('Area based colorization'):
+                    colorization = AutoColorizeArea(json.load(open("auto_color_schemes.json")))
+                    st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
+                                                        result["segmentation_mask_argmax"],
+                                                        result["heatmap"],
+                                                        low_var_ratio,
+                                                        model.k)
+                    current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
+
+
 except Exception as e:
     print(e)
     
