@@ -534,12 +534,12 @@ try:
                         st.session_state.latest_diff = (image, visualization, label_a, label_b)
         save_data()
 
-    if image_to_show:
-        mz = st.text_input('Create ION image for m/z:')
-        if mz:
-            mz_image = st.session_state.results[image_to_show]["mz_image"]
-            val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
-            st.image(visualizations.create_ion_image(mz_image, val))
+        if image_to_show:
+            mz = st.text_input('Create ION image for m/z:')
+            if mz:
+                mz_image = st.session_state.results[image_to_show]["mz_image"]
+                val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
+                st.image(visualizations.create_ion_image(mz_image, val))
 except Exception as e:
     print(e)
     
