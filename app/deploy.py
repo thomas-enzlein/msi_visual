@@ -112,6 +112,26 @@ def get_model():
         st.session_state['model'][combination_method] = model
     return model
 
+def auto_colorization():
+    result = st.session_state.results[path]
+    if "heatmap" in result:
+        low_var_ratio = st.slider('Fraction', 0.0, 1.0, step=0.05, value=0.5)
+        if st.button('Random Colorization'):
+            colorization = AutoColorizeRandom(json.load(open("auto_color_schemes.json")))
+            st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
+                                                result["segmentation_mask_argmax"],
+                                                result["heatmap"],
+                                                low_var_ratio,
+                                                model.k)
+        if st.button('Area based colorization'):
+            colorization = AutoColorizeArea(json.load(open("auto_color_schemes.json")))
+            st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
+                                                result["segmentation_mask_argmax"],
+                                                result["heatmap"],
+                                                low_var_ratio,
+                                                model.k)
+        current_color_scheme = str([str(x) for x in st.session_state.color_schemes])     
+
 def save_data():
     if image_to_show:
         folder = datetime.datetime.today().strftime('%Y-%m-%d')
@@ -130,7 +150,19 @@ def save_data():
                     Image.fromarray(heatmap).save(Path(folder) / f"{image_name}_{[label_a, label_b][index]}_{prefix}_mask.png")
         else:
             visualization = st.session_state.results[image_to_show]["visualization"]
-        Image.fromarray(visualization).save(Path(folder) / f"{image_name}_{prefix}.png")    
+        Image.fromarray(visualization).save(Path(folder) / f"{image_name}_{prefix}.png")
+
+        if 'ion_image' in st.session_state:
+            mz, ion_image = st.session_state.ion_image
+            Image.fromarray(ion_image).save(Path(folder) / f"{image_name}_mz_{mz:.4f}.png")
+
+        if 'k_seg' in st.session_state:
+            k_index, k_seg = st.session_state.k_seg
+            Image.fromarray(k_seg).save(Path(folder) / f"{image_name}_{prefix}_region_{k_index}.png")
+        
+        if st.session_state.results[image_to_show]["certainty_image"] is not None:
+            certainty = st.session_state.results[image_to_show]["certainty_image"]
+            Image.fromarray(np.uint8(255*certainty)).save(Path(folder) / f"{image_name}_{prefix}_certainty.png")
 
 def save_to_cache(cache_path='deploy.cache'):    
     cache = get_settings()
@@ -256,13 +288,13 @@ try:
         if combination_method != "SpectrumHeatmap":
                 region_selectbox = 0
                 if image_to_show:
-                    region_selectbox = st.selectbox(f"k-segment to control", [i for i in range(model.k)], index=0)
+                    region_selectbox = st.selectbox(f"Region to control", [i for i in range(model.k)], index=0)
                 
                 
                 region_default = 1.0
                 if region_selectbox in st.session_state.region_importance:
                     region_default = st.session_state.region_importance[int(region_selectbox)]
-                region_factor = st.slider(label=f'Weight of k-segment ({region_selectbox})',
+                region_factor = st.slider(label=f'Region weight ({region_selectbox})',
                                         min_value=0.0,
                                         max_value=4.0,
                                         value=region_default,
@@ -273,18 +305,18 @@ try:
                     default = colorschemes.index(st.session_state.color_schemes[0])
                     if st.session_state.color_schemes != '' and len(st.session_state.color_schemes) > int(region_selectbox):
                         default = colorschemes.index(st.session_state.color_schemes[int(region_selectbox)])
-                    region_colorscheme = st.selectbox(f"Color Scheme k-segment ({region_selectbox})", colorschemes, index=default)
+                    region_colorscheme = st.selectbox(f"Color Scheme for segmented region ({region_selectbox})", colorschemes, index=default)
 
                     col1, col2 = st.columns(2)
 
                     with col1:
-                        exportbutton=st.button("Export color scheme")
+                        exportbutton=st.button("Export Settings 💾")
                         
                     with col2:
-                        importbutton=st.button("Import color scheme")
+                        importbutton=st.button("Import Settings 📂")
                     
                     if exportbutton:
-                        dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
+                        dialog = wx.FileDialog(None, "Settings file", style=wx.DD_DEFAULT_STYLE)
                         if dialog.ShowModal() == wx.ID_OK:
                             export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
                             with open(export_path, 'w') as f:
@@ -293,7 +325,7 @@ try:
                                 json.dump(data_to_save, f)
 
                     if importbutton:
-                        dialog = wx.FileDialog(None, "Color scheme file location", style=wx.DD_DEFAULT_STYLE)
+                        dialog = wx.FileDialog(None, "Settings file", style=wx.DD_DEFAULT_STYLE)
                         if dialog.ShowModal() == wx.ID_OK:
                             export_path = dialog.GetPath() # folder_path will contain the path of the folder you have selected as
                             with open(export_path, 'r') as f:
@@ -313,10 +345,10 @@ try:
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    resetbutton=st.button('Re-set')
+                    resetbutton=st.button('Re-set ↺')
 
                 with col2:
-                    updatebutton=st.button('Update color scheme')                    
+                    updatebutton=st.button('Update ►')
                     
                 if resetbutton:
                     st.session_state.color_schemes = ["gist_yarg"] * 100
@@ -335,7 +367,7 @@ try:
             current_color_scheme = region_colorscheme
 
 
-    start = st.button("Run")
+    start = st.button("Run ►")
 
     if start:
         st.session_state.setting_hash = None
@@ -378,6 +410,11 @@ try:
                 img = data["mz_image"]
                 segmentation_mask = data["segmentation"].copy()     
                 
+                with st.sidebar:
+                    st.divider()
+                    if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
+                        auto_colorization()
+
                 if st.session_state.setting_hash != get_settings_hash():
                     st.session_state.setting_hash = get_settings_hash()
 
@@ -438,6 +475,7 @@ try:
                     st.session_state.results[path]["segmentation_mask_for_comparisons"] = segmentation_mask_for_comparisons
                     st.session_state.results[path]["segmentation_mask_argmax"] = segmentation_mask_argmax
 
+
                 certainty_image = st.session_state.results[path]["certainty_image"]
                 segmentation_mask = st.session_state.results[path]["segmentation_mask"]
                 visualization = st.session_state.results[path]["visualization"]
@@ -470,7 +508,9 @@ try:
                         region_visualization = st.session_state.results[path]["visualization"].copy()                    
                         mask = np.uint8(segmentation_mask_argmax == int(region_selectbox)) * 255
                         region_visualization[mask == 0] = 0
-                        cols[0].text('Selected k-segment')
+                        st.session_state.k_seg = (region_selectbox, region_visualization)
+
+                        cols[0].text('Selected Region {region_selectbox}')
                         cols[0].image(region_visualization)
 
                         if point is not None:
@@ -534,38 +574,17 @@ try:
                             image, label_a, label_b = diff.visualize_comparison_between_points(point_a, point_b)
                             st.image(image)
                         st.session_state.latest_diff = (image, visualization, label_a, label_b)
-        save_data()
 
     if image_to_show:
         mz = st.text_input('Create ION image for m/z:')
         if mz:
             mz_image = st.session_state.results[image_to_show]["mz_image"]
             val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
-            st.image(visualizations.create_ion_image(mz_image, val))
-
-    if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
-        if 'results' in st.session_state and image_to_show in st.session_state['results']:
-            with st.sidebar:
-                result = st.session_state['results'][image_to_show]
-                st.divider()
-                low_var_ratio = st.slider('Fraction', 0.0, 1.0, step=0.05, value=0.5)
-                if st.button('Random Colorization'):
-                    colorization = AutoColorizeRandom(json.load(open("auto_color_schemes.json")))
-                    st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
-                                                        result["segmentation_mask_argmax"],
-                                                        result["heatmap"],
-                                                        low_var_ratio,
-                                                        model.k)
-                    current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
-
-                if st.button('Area based colorization'):
-                    colorization = AutoColorizeArea(json.load(open("auto_color_schemes.json")))
-                    st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
-                                                        result["segmentation_mask_argmax"],
-                                                        result["heatmap"],
-                                                        low_var_ratio,
-                                                        model.k)
-                    current_color_scheme = str([str(x) for x in st.session_state.color_schemes])
+            mz_img = visualizations.create_ion_image(mz_image, val)
+            st.session.ion_image = (mz, mz_img)
+            st.image(mz_img)
+    
+    save_data()
 
 
 except Exception as e:
