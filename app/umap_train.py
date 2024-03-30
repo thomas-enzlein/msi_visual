@@ -39,7 +39,7 @@ if 'bins' not in st.session_state:
 with st.sidebar:
     
     #extraction_root_folder_default -> change to cache or setup later
-    extraction_root_folder_default = "E:\\MSImaging-data\\"
+    extraction_root_folder_default = "E:\\MSImaging-data\\_msi_visual\\extractions\\"
 
     extraction_root_folder = st.text_input("Extraction Root Folder", value=extraction_root_folder_default)
     if extraction_root_folder:

@@ -27,7 +27,7 @@ with st.sidebar:
     model_type = st.radio("Segmentation method", key="model",options=["NMF", "Kmeans"],)
         
     #extraction_root_folder_default -> change to cache or setup later
-    extraction_root_folder_default = "E:\\MSImaging-data\\"
+    extraction_root_folder_default = "E:\\MSImaging-data\\_msi_visual\\extractions\\"
 
     extraction_root_folder = st.text_input("Extraction Root Folder", value=extraction_root_folder_default)
     if extraction_root_folder:
@@ -44,7 +44,6 @@ with st.sidebar:
             st.session_state.extraction_end_mz = extraction_args.end_mz
 
         start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz, step=50)
-        #start_mz = st.number_input('Start m/z', min_value=0, value=300, step=50)
         end_mz = st.number_input('End m/z', 
             min_value=st.session_state.extraction_start_mz+50, 
             max_value=st.session_state.extraction_end_mz, 
@@ -54,7 +53,9 @@ with st.sidebar:
         number_of_components = st.number_input('Number of components (k)', min_value=2, max_value=100, value=5, step=5)
         
         #output path default for faster testing -> should be in cache and setup file
-        output_path_default = "E:\\MSImaging-data\\_msi_visual\\" + model_type + "-models\\model.joblib"
+        
+        output_path_default = "E:\\MSImaging-data\\_msi_visual\\" + model_type + "-models\\models.joblib"
+        
         output_path = st.text_input('Output path for segmentation model', value=output_path_default)
         sub_sample = st.number_input('Subsample pixels', value=None)
 
@@ -79,6 +80,8 @@ if start:
 
     if model_type == "NMF":
         seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
+    if model_type == "Kmeans":
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
     else:
         seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
 
