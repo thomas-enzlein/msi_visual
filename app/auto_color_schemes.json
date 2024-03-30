@@ -1,0 +1,11 @@
+{"low": [
+    "viridis", "cividis", "Blues", "BuGn", "BrBG", "BuPu", "GnBu",
+    "Greens", "Greys", "OrRd", "Oranges", "PRGn", "PuBu", "PuBuGn",
+    "PuRd", "Purples", "RdBu", "RdGy", "RdPu",
+    "RdYlBu", "Reds", "Wistia", "YlGnBu", "afmhot", "autumn",
+    "gist_earth", "gist_heat", "ocean", "pink", "summer", "spring"],
+"high": [
+    "magma", "inferno", "plasma", "twilight", "twilight_shifted",
+    "turbo", "CMRmap", "PiYG", "Spectral", "bwr", "rainbow", "rainbow_r", "gist_rainbow", 
+    "gist_ncar", "gist_stern", "gnuplot", "gnuplot2", "hsv", 
+    "jet", "nipy_spectral", "prism", "seismic", "Accent", "Set1"]}
