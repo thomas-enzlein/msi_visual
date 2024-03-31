@@ -103,7 +103,7 @@ with st.sidebar:
         
         #output path default for faster testing -> should be in cache and setup file
         
-        output_path_default = model_type + "\\models\\models.joblib"
+        output_path_default = cached_state['output_path']
         
         output_path = st.text_input('Output path for segmentation model', value=output_path_default)
         sub_sample = st.number_input('Subsample pixels', value=None)
@@ -123,18 +123,16 @@ if start:
     if start_mz is not None:
         start_bin = int(st.session_state.bins * (start_mz - st.session_state.extraction_start_mz))
     else:
-        start_bin = st.session_state.extraction_start_mz
+        start_bin = 0
     
     if end_mz is not None:
         end_bin = int(st.session_state.bins * (end_mz - st.session_state.extraction_start_mz))
     else:
         end_bin = None
-
+    
     if model_type == "NMF":
         seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
     if model_type == "Kmeans":
-        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
-    else:
         seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
 
     if sub_sample:
