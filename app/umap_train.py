@@ -74,7 +74,7 @@ if start:
     if start_mz is not None:
         start_bin = int(st.session_state.bins * (start_mz - st.session_state.extraction_start_mz))
     else:
-        start_bin = st.session_state.extraction_start_mz
+        start_bin = 0
     
     if end_mz is not None:
         end_bin = int(st.session_state.bins * (end_mz - st.session_state.extraction_start_mz))
