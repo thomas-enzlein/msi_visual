@@ -1,3 +1,5 @@
 *.pyc
 *.png
+*.jpg
 app/deploy.cache
+app/train.cache
