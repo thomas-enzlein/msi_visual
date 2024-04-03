@@ -33,6 +33,7 @@ def get_settings():
         'number_of_components': number_of_components,
         "normalization": normalization,
         "sub_sample": sub_sample,
+        "sample_name": sample_name,
         "output_file": output_file,
         "model_root_folder": model_root_folder,
         "output_path": output_path
@@ -109,18 +110,27 @@ with st.sidebar:
                                                step=5)
         
         sub_sample = st.number_input('Subsample pixels', 
-                                     value=None, 
+                                     value=1, 
                                      step=1)
 
-        normalization =st.radio('Normalization', ['tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=["total ion current", "spatial"])
+        normalization = st.radio('Normalization', ['tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=["total ion current", "spatial"])
         
-        output_file  = st.text_input('Output file name', value=cached_state['output_file'])
+        sample_name = "" 
+        sample_name = st.text_input('Sample name', value=cached_state['sample_name'])
         
+        output_file_suggestion = ""
+        normalization_short = ""
+        if normalization == "spatial_tic": normalization_short = 'sptic'
+        else: normalization_short = normalization
+        
+        output_file_suggestion  = f"{sample_name}_{normalization_short}_subs{sub_sample}_b{extraction_args.bins}_k{number_of_components}_startmz{start_mz}_endmz{end_mz}_{model_type}.joblib" 
+        output_file  = st.text_input('Output file name', value=output_file_suggestion)
+                
         model_root_folder = ""
         model_root_folder = st.text_input("Model Root Folder", value=cached_state['model_root_folder'])
         
-        output_path_default = model_root_folder + "\\" + model_type + "-models\\"
-        output_path = st.text_input('Output path for segmentation model', value=output_path_default + output_file + ".joblib")
+        output_path_default = f"{model_root_folder}\{model_type}-models\{sample_name}\\"
+        output_path = st.text_input('Output path for segmentation model', value=output_path_default + output_file)
         
         save_to_cache()
 
@@ -150,10 +160,10 @@ if start:
     else:
         seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
 
-    if sub_sample:
-        images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]
-    else:
+    if sub_sample == "1":
         images = [np.load(p) for p in regions]
+    else:
+        images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]
     
     with st.spinner(text="Training segmentation.."):
         seg.fit(images)
