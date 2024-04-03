@@ -9,7 +9,7 @@ from pathlib import Path
 from argparse import Namespace
 from PIL import Image
 from st_pages import show_pages_from_config, add_page_title
-
+from collections import defaultdict
 from msi_visual import nmf_segmentation, kmeans_segmentation
 from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
     get_files_from_folder
@@ -23,17 +23,51 @@ show_pages_from_config()
 if 'bins' not in st.session_state:
     st.session_state.bins = 5
 
+def get_settings():
+    return {
+        "extraction_root_folder": extraction_root_folder,
+        "extraction_folders": extraction_folders,
+        "selected_extraction": selected_extraction,
+        "start_mz": start_mz,
+        "end_mz": end_mz,
+        "output_path": output_path,
+        "normalization": normalizaiton
+    }
+
+def save_to_cache(cache_path='train.cache'):    
+    cache = get_settings()
+    
+    joblib.dump(cache, cache_path)
+
+extraction_folders = None
+selected_extraction = None
+start_mz = None
+end_mz = None
+output_path = None
+
+if os.path.exists("train.cache"):
+    state = joblib.load("train.cache")
+    cached_state = defaultdict(str)
+    for k, v in state.items():
+        cached_state[k] = v
+else:
+    cached_state = defaultdict(str)
+
+
 with st.sidebar:    
     model_type = st.radio("Segmentation method", key="model",options=["NMF", "Kmeans"],)
         
-    #extraction_root_folder_default -> change to cache or setup later
-    extraction_root_folder_default = "E:\\MSImaging-data\\_msi_visual\\extractions\\"
-
-    extraction_root_folder = st.text_input("Extraction Root Folder", value=extraction_root_folder_default)
+    extraction_root_folder_default = ""
+    extraction_root_folder = st.text_input("Extraction Root Folder", value=cached_state['extraction_root_folder'])
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
 
-        selected_extraction = st.selectbox('Extraction folder', extraction_folders.keys())
+        extraction_folders_list = list(extraction_folders.keys())
+        default = None
+        if cached_state['selected_extraction'] in extraction_folders_list:
+            default = cached_state['selected_extraction'].index(cached_state['selected_extraction'])
+
+        selected_extraction = st.selectbox('Extraction folder', extraction_folders_list, index=default)
         if selected_extraction:
             extraction_folder = extraction_folders[selected_extraction]
             regions = st.multiselect('Regions to include', get_files_from_folder(extraction_folder))
@@ -43,23 +77,41 @@ with st.sidebar:
             st.session_state.extraction_start_mz = extraction_args.start_mz
             st.session_state.extraction_end_mz = extraction_args.end_mz
 
-        start_mz = st.number_input('Start m/z', st.session_state.extraction_start_mz, step=50)
-        end_mz = st.number_input('End m/z', 
-            min_value=st.session_state.extraction_start_mz+50, 
-            max_value=st.session_state.extraction_end_mz, 
-            value=None, 
-            step=50)
+        if 'extraction_start_mz' in st.session_state:
+            min_value = st.session_state.extraction_start_mz
+            max_value = st.session_state.extraction_end_mz
+            step = 50
+        else:
+            min_value = None
+            max_value = None
+            step = None
+
+        start_mz = st.number_input('Start m/z',
+                                   min_value=min_value,
+                                   max_value=max_value,
+                                   step=step,
+                                   value=cached_state['start_mz'])
+        end_mz = st.number_input('End m/z',
+                                 min_value=min_value,
+                                 max_value=max_value,
+                                 value=cached_state['end_mz'], 
+                                 step=step)
         
-        number_of_components = st.number_input('Number of components (k)', min_value=2, max_value=100, value=5, step=5)
-        
-        #output path default for faster testing -> should be in cache and setup file
-        
-        output_path_default = "E:\\MSImaging-data\\_msi_visual\\" + model_type + "-models\\models.joblib"
+        number_of_components = st.number_input('Number of components (k)', 
+                                               min_value=2, 
+                                               max_value=100, 
+                                               value=5, 
+                                               step=5)
+                  
+        output_path_default = model_type + "-models\\models.joblib"
         
         output_path = st.text_input('Output path for segmentation model', value=output_path_default)
-        sub_sample = st.number_input('Subsample pixels', value=None)
-    
+        sub_sample = st.number_input('Subsample pixels', 
+                                     value=None, 
+                                     step=1)
+
     normalizaiton = st.selectbox('Normalization', ['tic', 'spatial_tic'], index=0)
+    save_to_cache()
 
 start = st.button("Train " + model_type + " segmentation")
 if start:
@@ -81,7 +133,9 @@ if start:
         end_bin = None
 
     if model_type == "NMF":
-        seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization='tic', start_bin=start_bin, end_bin=end_bin)
+        seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
+    if model_type == "Kmeans":
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
     else:
         seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
 
