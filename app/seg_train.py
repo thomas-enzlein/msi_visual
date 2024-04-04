@@ -143,6 +143,8 @@ if start:
     with st.spinner(text="Training segmentation.."):
         seg.fit(images)
 
+    output_path_folder = str(Path(output_path).parent)
+    os.makedirs(output_path_folder, exist_ok=True)
     joblib.dump(seg, output_path)
 
     for img in seg.visualize_training_components(images):
