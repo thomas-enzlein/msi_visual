@@ -123,8 +123,13 @@ with st.sidebar:
         if normalization == "spatial_tic": normalization_short = 'sptic'
         else: normalization_short = normalization
         
+        #save_model_sel = st.radio(label='Save model to:', key="path", options=['default_path', 'custom_path'],)
+        #if save_model_sel = 'default_path':
+            
+        #else:
+            
         output_file_suggestion  = f"{sample_name}_{normalization_short}_subs{sub_sample}_b{extraction_args.bins}_k{number_of_components}_startmz{start_mz}_endmz{end_mz}_{model_type}.joblib" 
-        output_file  = st.text_input('Output file name', value=output_file_suggestion)
+        output_file  = st.text_input('Output file name', value=output_file_suggestion, disabled)
                 
         model_root_folder = ""
         model_root_folder = st.text_input("Model Root Folder", value=cached_state['model_root_folder'])
@@ -160,7 +165,7 @@ if start:
     else:
         seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
 
-    if sub_sample == "1":
+    if sub_sample == 1:
         images = [np.load(p) for p in regions]
     else:
         images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]
