@@ -8,4 +8,4 @@ name = "Train UMAP"
 
 [[pages]]
 path = "deploy.py"
-name = "Run Virtual Stain (NMF or Kmeans)"
+name = "Run Virtual Stain"
