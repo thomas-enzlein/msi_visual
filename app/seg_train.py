@@ -156,9 +156,9 @@ if start:
     if model_type == "NMF":
         seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
     if model_type == "Kmeans":
-        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
     else:
-        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
 
     if sub_sample == "1":
         images = [np.load(p) for p in regions]
