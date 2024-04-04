@@ -103,7 +103,7 @@ with st.sidebar:
         save_model_sel = st.radio(label='Save model to path', key="path", options=['generated', 'custom'], horizontal=1)
         
         if save_model_sel == "custom":
-            output_path = st.text_input('Custom output path', value='..\ + model_type + \model.joblib', disabled=False)    
+            output_path = st.text_input('Custom output path', value=f"..\{model_type}-model.joblib")    
             sample_name = cached_state['sample_name']
             output_file = cached_state['output_file']
             model_root_folder = cached_state['model_root_folder']

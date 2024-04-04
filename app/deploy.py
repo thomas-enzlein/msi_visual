@@ -579,14 +579,14 @@ try:
                             st.image(image)
                         st.session_state.latest_diff = (image, visualization, label_a, label_b)
 
-    if image_to_show:
-        mz = st.text_input('Create ION image for m/z:')
-        if mz:
-            mz_image = st.session_state.results[image_to_show]["mz_image"]
-            val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
-            mz_img = visualizations.create_ion_image(mz_image, val)
-            st.session_state.ion_image = (mz, mz_img)
-            st.image(mz_img)
+        if image_to_show:
+            mz = st.text_input('Create ION image for m/z:')
+            if mz:
+                mz_image = st.session_state.results[image_to_show]["mz_image"]
+                val = int( (float(mz)-st.session_state.extraction_start_mz) * st.session_state.bins)
+                mz_img = visualizations.create_ion_image(mz_image, val)
+                st.session_state.ion_image = (mz, mz_img)
+                st.image(mz_img)
     
     save_data()
 
