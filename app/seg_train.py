@@ -58,7 +58,6 @@ if os.path.exists("train.cache"):
 else:
     cached_state = defaultdict(str)
 
-
 with st.sidebar:    
     model_type = st.radio("Segmentation method", key="model",options=["NMF", "Kmeans"],)
         
@@ -92,50 +91,29 @@ with st.sidebar:
             max_value = None
             step = None
 
-        start_mz = st.number_input('Start m/z',
-                                   min_value=min_value,
-                                   max_value=max_value,
-                                   step=step,
-                                   value=cached_state['start_mz'])
-        end_mz = st.number_input('End m/z',
-                                 min_value=min_value,
-                                 max_value=max_value,
-                                 value=cached_state['end_mz'], 
-                                 step=step)
-        
-        number_of_components = st.number_input('Number of components (k)', 
-                                               min_value=2, 
-                                               max_value=100, 
-                                               value=5, 
-                                               step=5)
-        
-        sub_sample = st.number_input('Subsample pixels', 
-                                     value=1, 
-                                     step=1)
-
+        start_mz = st.number_input('Start m/z', min_value=min_value, max_value=max_value, step=step, value=cached_state['start_mz'])
+        end_mz = st.number_input('End m/z', min_value=min_value, max_value=max_value, value=cached_state['end_mz'], step=step)
+        number_of_components = st.number_input('Number of components (k)', min_value=2, max_value=100, value=5, step=5)
+        sub_sample = st.number_input('Subsample pixels', value=1, step=1)
         normalization = st.radio('Normalization', ['tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=["total ion current", "spatial"])
         
-        sample_name = "" 
-        sample_name = st.text_input('Sample name', value=cached_state['sample_name'])
-        
-        output_file_suggestion = ""
-        normalization_short = ""
-        if normalization == "spatial_tic": normalization_short = 'sptic'
+        if normalization == "spatial_tic":normalization_short = 'sptic'
         else: normalization_short = normalization
         
-        #save_model_sel = st.radio(label='Save model to:', key="path", options=['default_path', 'custom_path'],)
-        #if save_model_sel = 'default_path':
-            
-        #else:
-            
-        output_file_suggestion  = f"{sample_name}_{normalization_short}_subs{sub_sample}_b{extraction_args.bins}_k{number_of_components}_startmz{start_mz}_endmz{end_mz}_{model_type}.joblib" 
-        output_file  = st.text_input('Output file name', value=output_file_suggestion, disabled)
-                
-        model_root_folder = ""
-        model_root_folder = st.text_input("Model Root Folder", value=cached_state['model_root_folder'])
+        save_model_sel = st.radio(label='Save model to path', key="path", options=['generated', 'custom'], horizontal=1)
         
-        output_path_default = f"{model_root_folder}\{model_type}-models\{sample_name}\\"
-        output_path = st.text_input('Output path for segmentation model', value=output_path_default + output_file)
+        if save_model_sel == "custom":
+            output_path = st.text_input('Output path', value='..\model.joblib', disabled=False)    
+            sample_name = cached_state['sample_name']
+            output_file = cached_state['output_file']
+            model_root_folder = cached_state['model_root_folder']
+        else:
+            sample_name = st.text_input('Sample name / identifier', value=cached_state['sample_name'])
+            output_file_suggestion  = f"{sample_name}_{normalization_short}_subs{sub_sample}_b{extraction_args.bins}_k{number_of_components}_startmz{start_mz}_endmz{end_mz}_{model_type}.joblib" 
+            output_file  = st.text_input('Output file name', value=output_file_suggestion)
+            model_root_folder = st.text_input("Model Root Folder", value=cached_state['model_root_folder'])
+            output_path_default = f"{model_root_folder}\{model_type}-models\{sample_name}\\"
+            output_path = st.text_input('Output path for segmentation model', value=output_path_default + output_file)
         
         save_to_cache()
 
