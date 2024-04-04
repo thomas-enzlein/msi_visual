@@ -31,6 +31,7 @@ from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 from msi_visual.avgmz_nmf_segmentation import SegmentationAvgMZVisualization
 from msi_visual.avgmz import AvgMZVisualization
 from msi_visual.auto_colorization import AutoColorizeRandom, AutoColorizeArea
+from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 importlib.reload(visualizations)
 import hashlib
 import base64
@@ -470,7 +471,7 @@ try:
                         certainty_image = np.uint8(certainty_image * 255)
                         certainty_image = cv2.equalizeHist(certainty_image)
                         certainty_image = np.float32(certainty_image) / 255
-                    
+
 
                     st.session_state.results[path]["certainty_image"] = certainty_image
                     st.session_state.results[path]["segmentation_mask"] = segmentation_mask
@@ -591,5 +592,5 @@ try:
 
 
 except Exception as e:
+    print(traceback.format_exc())
     print(e)
-    
