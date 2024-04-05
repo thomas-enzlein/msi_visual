@@ -274,8 +274,8 @@ try:
         
         umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
         st.session_state.umap_model_folder = umap_model_folder
-        output_normalization = st.radio("Select segmentation normalization", ['spatial_norm', 'None'])
-        sub_sample = st.number_input('Subsample pixels', value=None)
+        output_normalization = st.radio("Select segmentation normalisation", ['spatial_norm', 'None'])
+        sub_sample = st.number_input('Subsample pixels', min_value=1, value=None, step=1)
         
         #objects_mode = st.checkbox('Objects mode')
         #objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])
@@ -448,6 +448,7 @@ try:
                                                                         region_factors=st.session_state.region_importance)
                         segmentation_mask_argmax = segmentation_mask.argmax(axis=0)
                         segmentation_mask_for_comparisons = sub_segmentation_mask
+                    
                     elif combination_method == "Segmentation":
                         segmentation_mask, visualization = model.visualize_factorization(img,
                                                                                         segmentation_mask,
@@ -459,6 +460,7 @@ try:
                         segmentation_mask_argmax = segmentation_mask.argmax(axis=0)
                         segmentation_mask_argmax[roi_mask == 0] = 0
                         segmentation_mask_for_comparisons = segmentation_mask_argmax
+                    
                     elif combination_method == "SpectrumHeatmap":
                         segmentation_mask, visualization = model.visualize_factorization(img,
                                                                                         segmentation_mask,
@@ -510,8 +512,8 @@ try:
                         segmentation_mask[object_mask == 0] = -1
                         visualization[object_mask == 0] = 0
                 point = streamlit_image_coordinates(st.session_state.results[path]["visualization"])
+                
                 num_cols = 2
-
                 if combination_method != "SpectrumHeatmap":
                     with st.container():
                         cols = st.columns(num_cols)

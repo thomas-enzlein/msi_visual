@@ -30,8 +30,13 @@ def get_settings():
         "selected_extraction": selected_extraction,
         "start_mz": start_mz,
         "end_mz": end_mz,
-        "output_path": output_path,
-        "normalization": normalizaiton
+        'number_of_components': number_of_components,
+        "normalization": normalization,
+        "sub_sample": sub_sample,
+        "sample_name": sample_name,
+        "output_file": output_file,
+        "model_root_folder": model_root_folder,
+        "output_path": output_path
     }
 
 def save_to_cache(cache_path='train.cache'):    
@@ -53,14 +58,12 @@ if os.path.exists("train.cache"):
 else:
     cached_state = defaultdict(str)
 
-
 with st.sidebar:    
     model_type = st.radio("Segmentation method", key="model",options=["NMF", "Kmeans"],)
         
-    #extraction_root_folder_default -> change to cache or setup later
     extraction_root_folder_default = ""
-
     extraction_root_folder = st.text_input("Extraction Root Folder", value=cached_state['extraction_root_folder'])
+    
     if extraction_root_folder:
         extraction_folders = display_paths_to_extraction_paths(extraction_root_folder)
 
@@ -88,28 +91,31 @@ with st.sidebar:
             max_value = None
             step = None
 
-        start_mz = st.number_input('Start m/z',
-                                   min_value=min_value,
-                                   max_value=max_value,
-                                   step=step,
-                                   value=cached_state['start_mz'])
-        end_mz = st.number_input('End m/z', 
-            min_value=min_value,
-            max_value=max_value,
-            value=cached_state['end_mz'], 
-            step=step)
-        
+        start_mz = st.number_input('Start m/z', min_value=min_value, max_value=max_value, step=step, value=cached_state['start_mz'])
+        end_mz = st.number_input('End m/z', min_value=min_value, max_value=max_value, value=cached_state['end_mz'], step=step)
         number_of_components = st.number_input('Number of components (k)', min_value=2, max_value=100, value=5, step=5)
+        sub_sample = st.number_input('Subsample pixels', value=1, step=1)
+        normalization = st.radio('Normalization', ['tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=["total ion current", "spatial"])
         
-        #output path default for faster testing -> should be in cache and setup file
+        if normalization == "spatial_tic":normalization_short = 'sptic'
+        else: normalization_short = normalization
         
-        output_path_default = cached_state['output_path']
+        save_model_sel = st.radio(label='Save model to path', key="path", options=['generated', 'custom'], horizontal=1)
         
-        output_path = st.text_input('Output path for segmentation model', value=output_path_default)
-        sub_sample = st.number_input('Subsample pixels', value=None)
-
-    normalizaiton = st.selectbox('Normalization', ['tic', 'spatial_tic'], index=0)
-    save_to_cache()
+        if save_model_sel == "custom":
+            output_path = st.text_input('Output path', value='..\model.joblib', disabled=False)    
+            sample_name = cached_state['sample_name']
+            output_file = cached_state['output_file']
+            model_root_folder = cached_state['model_root_folder']
+        else:
+            sample_name = st.text_input('Sample name / identifier', value=cached_state['sample_name'])
+            output_file_suggestion  = f"{sample_name}_{normalization_short}_subs{sub_sample}_b{extraction_args.bins}_k{number_of_components}_startmz{start_mz}_endmz{end_mz}_{model_type}.joblib" 
+            output_file  = st.text_input('Output file name', value=output_file_suggestion)
+            model_root_folder = st.text_input("Model Root Folder", value=cached_state['model_root_folder'])
+            output_path_default = f"{model_root_folder}\{model_type}-models\{sample_name}\\"
+            output_path = st.text_input('Output path for segmentation model', value=output_path_default + output_file)
+        
+        save_to_cache()
 
 start = st.button("Train " + model_type + " segmentation")
 if start:
@@ -131,14 +137,16 @@ if start:
         end_bin = None
     
     if model_type == "NMF":
-        seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
+        seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
     if model_type == "Kmeans":
-        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalizaiton, start_bin=start_bin, end_bin=end_bin)
-
-    if sub_sample:
-        images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
     else:
+        seg = kmeans_segmentation.KmeansSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
+
+    if sub_sample == 1:
         images = [np.load(p) for p in regions]
+    else:
+        images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]
     
     with st.spinner(text="Training segmentation.."):
         seg.fit(images)
