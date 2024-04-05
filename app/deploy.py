@@ -86,6 +86,14 @@ def get_model():
             st.session_state['segmentation_model'] = model
         else:
             model = st.session_state['segmentation_model']
+
+        
+        if model.k >= len(st.session_state.color_schemes):
+            print("Resetting color scheme")
+            st.session_state.color_schemes = ["gist_yarg"] * 100
+            st.session_state.region_importance = {}
+
+
     
     if combination_method == "Seg+UMAP":
         if umap_model_folder:
@@ -281,6 +289,7 @@ try:
             st.session_state.model_hash = model_hash
 
         model = get_model()
+
         st.write(combination_method)
 
     colorschemes = list(colormaps)
