@@ -103,17 +103,17 @@ with st.sidebar:
         save_model_sel = st.radio(label='Save model to path', key="path", options=['generated', 'custom'], horizontal=1)
         
         if save_model_sel == "custom":
-            output_path = st.text_input('Output path', value='..\model.joblib', disabled=False)    
+            output_path = st.text_input('Custom output path', value=f"..\{model_type}-model.joblib")    
             sample_name = cached_state['sample_name']
             output_file = cached_state['output_file']
             model_root_folder = cached_state['model_root_folder']
         else:
-            sample_name = st.text_input('Sample name / identifier', value=cached_state['sample_name'])
+            sample_name = st.text_input('Add sample name / identifier 👇', value=cached_state['sample_name'])
             output_file_suggestion  = f"{sample_name}_{normalization_short}_subs{sub_sample}_b{extraction_args.bins}_k{number_of_components}_startmz{start_mz}_endmz{end_mz}_{model_type}.joblib" 
-            output_file  = st.text_input('Output file name', value=output_file_suggestion)
-            model_root_folder = st.text_input("Model Root Folder", value=cached_state['model_root_folder'])
+            output_file  = st.text_input('Suggested output file name', value=output_file_suggestion)
+            model_root_folder = st.text_input("Add Model Root Folder 👇", value=cached_state['model_root_folder'])
             output_path_default = f"{model_root_folder}\{model_type}-models\{sample_name}\\"
-            output_path = st.text_input('Output path for segmentation model', value=output_path_default + output_file)
+            output_path = st.text_input('Suggested output path for segmentation model', value=output_path_default + output_file)
         
         save_to_cache()
 
