@@ -500,6 +500,7 @@ try:
 
 
                     t0 = time.time()
+                    print("generating correlation plots..")
                     random.seed(10)
                     fig = get_correlation_plot(img, visualization)
                     print("took", time.time()-t0)
