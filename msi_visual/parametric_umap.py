@@ -75,3 +75,5 @@ class MSIParametricUMAP:
 
         umap_model.fit(vector)
         return encoder
+    
+

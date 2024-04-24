@@ -5,6 +5,7 @@ import traceback
 import datetime
 import json
 import sys
+import time
 from PIL import Image
 import numpy as np
 import joblib
@@ -18,23 +19,26 @@ from pathlib import Path
 import importlib
 import wx
 import cv2
+import random
 import msi_visual
 importlib.reload(msi_visual)
 from msi_visual import nmf_segmentation
 from msi_visual import visualizations
-from msi_visual import objects
 from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
     get_files_from_folder
 from msi_visual.utils import get_certainty, set_region_importance
 from msi_visual import parametric_umap
 from msi_visual.umap_nmf_segmentation import SegmentationUMAPVisualization
 from msi_visual.avgmz_nmf_segmentation import SegmentationAvgMZVisualization
+from msi_visual.rare_nmf_segmentation import SegmentationRareVisualization
 from msi_visual.avgmz import AvgMZVisualization
 from msi_visual.auto_colorization import AutoColorizeRandom, AutoColorizeArea
+from msi_visual.metrics import get_correlation_plot
 from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 importlib.reload(visualizations)
 import hashlib
 import base64
+
 
 def make_hash_sha256(o):
     hasher = hashlib.md5()
@@ -88,7 +92,7 @@ def get_model():
             model = st.session_state['segmentation_model']
 
         
-        if model.k >= len(st.session_state.color_schemes):
+        if model.k > len(st.session_state.color_schemes):
             print("Resetting color scheme")
             st.session_state.color_schemes = ["gist_yarg"] * 100
             st.session_state.region_importance = {}
@@ -105,20 +109,29 @@ def get_model():
                 model = st.session_state['model'][combination_method]
         else:
             model = None
-    
+
+    elif combination_method == "Seg+Rare":
+        if st.session_state['model'][combination_method] is None:
+            model = SegmentationRareVisualization(model)
+        else:
+            model = st.session_state['model'][combination_method]
+
     elif combination_method == "Seg+SpectrumHeatmap":
         if st.session_state['model'][combination_method] is None:
             model = SegmentationAvgMZVisualization(model)
         else:
             model = st.session_state['model'][combination_method]
     elif combination_method == "SpectrumHeatmap":
-        if st.session_state['model'][combination_method] is not None:
+        if st.session_state['model'][combination_method] is None:
             model = AvgMZVisualization()
         else:
             model = st.session_state['model'][combination_method]
     
     if model is not None:
         st.session_state['model'][combination_method] = model
+    
+    print(combination_method, model)
+
     return model
 
 def auto_colorization():
@@ -202,7 +215,8 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 if 'model' not in st.session_state:
-    st.session_state.model = {'Seg+SpectrumHeatmap': None,
+    st.session_state.model = {'Seg+Rare': None,
+                              'Seg+SpectrumHeatmap': None,
                               'Seg+UMAP': None,
                               "Segmentation": None,
                               "SpectrumHeatmap": None}
@@ -270,17 +284,18 @@ try:
             st.session_state.nmf_model_path = nmf_model_path
 
         combination_method = st.radio('Color Coding Method',
-                                    ["Segmentation", "Seg+UMAP", "Seg+SpectrumHeatmap", "SpectrumHeatmap"], index=0)
+                                    ["Segmentation",
+                                     "Seg+UMAP",
+                                     "Seg+SpectrumHeatmap",
+                                     "Seg+Rare",
+                                     "SpectrumHeatmap"],
+                                     index=0)
         
         umap_model_folder = st.text_input('UMAP Model folder (optional)', value=cached_state['UMAP Model folder (optional)'])
         st.session_state.umap_model_folder = umap_model_folder
         output_normalization = st.radio("Select segmentation normalisation", ['spatial_norm', 'None'])
         sub_sample = st.number_input('Subsample pixels', min_value=1, value=None, step=1)
         
-        #objects_mode = st.checkbox('Objects mode')
-        #objects_window = st.selectbox('Objects window size', [3, 6, 9, 12])
-        objects_mode = False
-
     with st.sidebar:
         image_to_show = st.selectbox('Image to show', list(regions), key = st.session_state.run_id)
 
@@ -408,11 +423,13 @@ try:
                 results = {}
                 results["mz_image"] = img
 
-                if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
+                t0 = time.time()
+                if "+" in combination_method:
                     results["segmentation"], results["heatmap"] = model.factorize(img)
                 else:
                     results["segmentation"] = model.factorize(img)
-                
+                print("Factorization took", time.time()-t0)
+
                 st.session_state.results[path] = results
 
     if 'results' in st.session_state:
@@ -423,7 +440,7 @@ try:
                 
                 with st.sidebar:
                     st.divider()
-                    if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
+                    if "+" in combination_method:
                         auto_colorization()
 
                 if st.session_state.setting_hash != get_settings_hash():
@@ -438,7 +455,7 @@ try:
                                 roi_mask[certainty_image < low] = 0
                                 roi_mask[certainty_image > high] = 0
 
-                    if combination_method in ["Seg+UMAP", "Seg+SpectrumHeatmap"]:
+                    if "+" in combination_method:
                         segmentation_mask, sub_segmentation_mask, visualization = model.visualize_factorization(img,
                                                                         segmentation_mask,
                                                                         data["heatmap"],
@@ -482,9 +499,18 @@ try:
                         certainty_image = np.float32(certainty_image) / 255
 
 
+                    t0 = time.time()
+                    random.seed(10)
+                    fig = get_correlation_plot(img, visualization)
+                    print("took", time.time()-t0)
+                    fig.set_size_inches(5, 2.5)
+
                     st.session_state.results[path]["certainty_image"] = certainty_image
                     st.session_state.results[path]["segmentation_mask"] = segmentation_mask
                     st.session_state.results[path]["visualization"] = visualization
+                    st.session_state.results[path]["correlation_plot"] = fig
+
+
                     st.session_state.results[path]["segmentation_mask_for_comparisons"] = segmentation_mask_for_comparisons
                     st.session_state.results[path]["segmentation_mask_argmax"] = segmentation_mask_argmax
 
@@ -495,23 +521,12 @@ try:
                 segmentation_mask_for_comparisons = st.session_state.results[path]["segmentation_mask_for_comparisons"]
                 segmentation_mask_argmax = st.session_state.results[path]["segmentation_mask_argmax"]
 
-                if objects_mode:
-                    with st.spinner(text="Detecting objects.."):
+                
+                visualization = st.session_state.results[path]["visualization"]
+                fig = st.session_state.results[path]["correlation_plot"]
+                point = streamlit_image_coordinates(visualization)
 
-                        key = str(objects_window) + "_" + path
-                        if 'object_mask' in st.session_state and key in st.session_state.object_mask:
-                            object_mask = st.session_state.object_mask[key]
-                        else:
-                            if 'object_mask' not in st.session_state:
-                                st.session_state.object_mask = {}
-                                
-                            detector = objects.ObjectDetector(size=int(objects_window))
-                            object_mask = detector.get_mask(img)
-                            st.session_state.object_mask[key] = object_mask
-
-                        segmentation_mask[object_mask == 0] = -1
-                        visualization[object_mask == 0] = 0
-                point = streamlit_image_coordinates(st.session_state.results[path]["visualization"])
+                st.pyplot(fig)
                 
                 num_cols = 2
                 if combination_method != "SpectrumHeatmap":
@@ -548,8 +563,7 @@ try:
         with st.container():
             for index, col in enumerate(st.columns(len(images))):
                 col.image(images[index])
-            if (objects_mode and len(st.session_state.coordinates[image_to_show]) > 0) or \
-                ((not objects_mode) and len(st.session_state.coordinates[image_to_show]) > 1):
+            if len(st.session_state.coordinates[image_to_show]) > 1:
                     with st.spinner(text="Comparing regions.."):
                         mz_image = st.session_state.results[image_to_show]["mz_image"]
                         visualization = st.session_state.results[image_to_show]["visualization"]
@@ -573,19 +587,12 @@ try:
 
                         st.session_state['current_color_scheme'] = current_color_scheme
                         
-                        if objects_mode:
-                            point = st.session_state.coordinates[image_to_show][-1]
-                            point = int(point['x']), int(point['y'])
-                            image = diff.visualize_object_comparison(point, size=objects_window)
-                            label_a, label_b = None, None
-                            st.image(image)
-                        else:
-                            point_a = st.session_state.coordinates[image_to_show][0]
-                            point_a = int(point_a['x']), int(point_a['y'])
-                            point_b = st.session_state.coordinates[image_to_show][1]
-                            point_b = int(point_b['x']), int(point_b['y'])
-                            image, label_a, label_b = diff.visualize_comparison_between_points(point_a, point_b)
-                            st.image(image)
+                        point_a = st.session_state.coordinates[image_to_show][0]
+                        point_a = int(point_a['x']), int(point_a['y'])
+                        point_b = st.session_state.coordinates[image_to_show][1]
+                        point_b = int(point_b['x']), int(point_b['y'])
+                        image, label_a, label_b = diff.visualize_comparison_between_points(point_a, point_b)
+                        st.image(image)
                         st.session_state.latest_diff = (image, visualization, label_a, label_b)
 
     if image_to_show:

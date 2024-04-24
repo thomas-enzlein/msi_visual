@@ -136,6 +136,7 @@ if start:
     else:
         end_bin = None
     
+    st.write(model_type)
     if model_type == "NMF":
         seg = nmf_segmentation.NMFSegmentation(k=int(number_of_components), normalization=normalization, start_bin=start_bin, end_bin=end_bin)
     if model_type == "Kmeans":

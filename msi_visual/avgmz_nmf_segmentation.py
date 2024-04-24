@@ -10,7 +10,11 @@ class SegmentationAvgMZVisualization:
         self.k = self.segmentation_model.k
 
     def factorize(self, img):
+        if img.dtype != np.float32:
+            img = np.float32(img)
+        
         processed_img = img / img.sum(axis=-1)[:, :, None]
+        
 
         self.segmentation = self.segmentation_model.factorize(img)
 
