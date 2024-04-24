@@ -10,7 +10,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import cv2
 
-def get_correlation_plot(img, visualization_rgb, num_samples=500, title=None):
+def get_correlation_plot(img, visualization_rgb, num_samples=3000, title=None):
     visualization = cv2.cvtColor(visualization_rgb, cv2.COLOR_RGB2LAB)
     #visualization_rgb = visualization
     normalized = total_ion_count(img)
