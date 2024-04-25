@@ -44,8 +44,8 @@ def get_correlation_plot(img, visualization_rgb, num_samples=3000, title=None):
         # data['Cosine']['outputs'].append(1 - cosine_similarity(np.array([a]), np.array([b]))[0, 0])
         # data['Maximum ION difference']['outputs'].append(np.abs(a-b).max())
 
-    fig = plt.figure()
-
+    fig, ax = plt.subplots()
+    
     for method in data:
         inputs = np.float32(data[method]["inputs"])
         outputs = np.float32(data[method]["outputs"])
@@ -69,6 +69,7 @@ def get_correlation_plot(img, visualization_rgb, num_samples=3000, title=None):
         
     plt.xlabel('Maximum input distance percentile')
     plt.ylabel('Kendall rank correlation')
+    ax.set_yticks(list(np.arange(0, np.max(corr)+0.05, 0.05)))
     return fig
 
 if __name__ == "__main__":
