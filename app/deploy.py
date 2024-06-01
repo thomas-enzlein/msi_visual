@@ -215,7 +215,8 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 if 'model' not in st.session_state:
-    st.session_state.model = {'Seg+Rare': None,
+    st.session_state.model = {"Dim. Reduction": None,
+                              'Seg+Rare': None,
                               'Seg+SpectrumHeatmap': None,
                               'Seg+UMAP': None,
                               "Segmentation": None,
@@ -284,7 +285,8 @@ try:
             st.session_state.nmf_model_path = nmf_model_path
 
         combination_method = st.radio('Color Coding Method',
-                                    ["Segmentation",
+                                    ["Dim. Reduction",
+                                     "Segmentation",
                                      "Seg+UMAP",
                                      "Seg+SpectrumHeatmap",
                                      "Seg+Rare",
@@ -400,7 +402,7 @@ try:
         save_to_cache()
         st.session_state.run_id = st.session_state.run_id + 1
 
-        with st.spinner(text="Running segmentation.."):
+        with st.spinner(text="Computing visualization.."):
             st.session_state.coordinates = None
             st.session_state.results = None
             st.session_state.difference_visualizations = None
@@ -455,6 +457,14 @@ try:
                                 roi_mask[certainty_image < low] = 0
                                 roi_mask[certainty_image > high] = 0
 
+                    if combination_method == "Dim. Reduction":
+                        sub_segmentation_mask, visualization = model.visualize_factorization(img,
+                                                                        segmentation_mask,
+                                                                        method=output_normalization)
+                        segmentation_mask_argmax = None
+                        segmentation_mask_for_comparisons = sub_segmentation_mask
+
+
                     if "+" in combination_method:
                         segmentation_mask, sub_segmentation_mask, visualization = model.visualize_factorization(img,
                                                                         segmentation_mask,
@@ -491,7 +501,7 @@ try:
                         segmentation_mask_argmax = None
 
                     certainty_image= None
-                    if combination_method != "SpectrumHeatmap":
+                    if combination_method != "SpectrumHeatmap" and combination_method != "Dim. Reduction":
                         certainty_image = get_certainty(segmentation_mask)
                         certainty_image[img.max(axis=-1) == 0] = 0
                         certainty_image = np.uint8(certainty_image * 255)

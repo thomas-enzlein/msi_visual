@@ -3,8 +3,8 @@ path = "seg_train.py"
 name = "Train NMF or Kmeans"
 
 [[pages]]
-path = "umap_train.py"
-name = "Train UMAP"
+path = "dimensionality_reduction_train.py"
+name = "Train Dimensionality Reduction Color Visualization model"
 
 [[pages]]
 path = "deploy.py"
