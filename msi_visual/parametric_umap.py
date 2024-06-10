@@ -7,8 +7,8 @@ import joblib
 from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 
 class UMAPVirtualStain:
-    def __init__(self, start_bin=0, end_bin=None, normalization='spatial_tic'):
-        self.umap = MSIParametricUMAP(start_bin=start_bin, end_bin=end_bin, normalization='spatial_tic')
+    def __init__(self, n_components=1, start_bin=0, end_bin=None, normalization='spatial_tic'):
+        self.umap = MSIParametricUMAP(n_components=n_components, start_bin=start_bin, end_bin=end_bin, normalization='spatial_tic')
 
     def fit(self, images, keras_fit_kwargs):
         self.encoder = self.umap.fit(images, keras_fit_kwargs)

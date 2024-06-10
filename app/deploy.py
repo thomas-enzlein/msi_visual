@@ -17,6 +17,7 @@ from st_pages import show_pages_from_config, add_page_title
 from streamlit_image_coordinates import streamlit_image_coordinates
 from pathlib import Path
 import importlib
+import cmapy
 import wx
 import cv2
 import random
@@ -84,20 +85,20 @@ def model_hash():
 
 def get_model():
     if nmf_model_name:
-        if st.session_state['segmentation_model'] is None:
+        if ('segmentation_model_path' in st.session_state and st.session_state['segmentation_model_path'] != nmf_model_name) \
+            or st.session_state['segmentation_model'] is None:
             nmf_model_path = [p for p in nmf_model_paths if Path(p).stem == nmf_model_name][0]
             model = joblib.load(open(nmf_model_path, 'rb'))
             st.session_state['segmentation_model'] = model
+            st.session_state['segmentation_model_path'] = nmf_model_name
         else:
             model = st.session_state['segmentation_model']
 
         
         if model.k > len(st.session_state.color_schemes):
-            print("Resetting color scheme")
-            st.session_state.color_schemes = ["gist_yarg"] * 100
+            print("Resetting color scheme", len(st.session_state.color_schemes), model.k)
+            st.session_state.color_schemes = ["gist_yarg"] * model.k
             st.session_state.region_importance = {}
-
-
     
     if combination_method == "Seg+UMAP":
         if umap_model_folder:
@@ -127,11 +128,19 @@ def get_model():
         else:
             model = st.session_state['model'][combination_method]
     
+    elif combination_method == "Dim. Reduction" and umap_model_folder:
+        if ('umap_model_folder' in st.session_state and st.session_state['umap_model_folder'] != umap_model_folder) \
+             or  (st.session_state['model'][combination_method] is None) \
+            or ('umap_model_folder' not in st.session_state):
+            model = parametric_umap.UMAPVirtualStain()
+            model.load(umap_model_folder)        
+            st.session_state['umap_model_folder'] = umap_model_folder
+        else:
+            model = st.session_state['model'][combination_method]
+    
     if model is not None:
         st.session_state['model'][combination_method] = model
     
-    print(combination_method, model)
-
     return model
 
 def auto_colorization():
@@ -141,18 +150,19 @@ def auto_colorization():
         low_var_ratio = st.slider('Fraction', 0.0, 1.0, step=0.05, value=0.5)
         if st.button('Random Colorization'):
             colorization = AutoColorizeRandom(json.load(open("auto_color_schemes.json")))
+            k = st.session_state['segmentation_model'].k
             st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
                                                 result["segmentation_mask_argmax"],
                                                 result["heatmap"],
                                                 low_var_ratio,
-                                                model.k)
+                                                k)
         if st.button('Area based colorization'):
             colorization = AutoColorizeArea(json.load(open("auto_color_schemes.json")))
             st.session_state.color_schemes = colorization.colorize(result["mz_image"], 
                                                 result["segmentation_mask_argmax"],
                                                 result["heatmap"],
                                                 low_var_ratio,
-                                                model.k)
+                                                k)
         current_color_scheme = str([str(x) for x in st.session_state.color_schemes])     
 
 def save_data():
@@ -561,7 +571,11 @@ try:
 
                         if st.session_state.results[path]["certainty_image"] is not None:
                             cols[1].text('Visualization of confidence')
-                            cols[1].image(np.uint8(255*st.session_state.results[path]["certainty_image"]))
+                            certainty = np.uint8(255*st.session_state.results[path]["certainty_image"])
+                            certainty = cv2.applyColorMap(certainty, cmapy.cmap("viridis"))
+                            certainty = certainty[:, :, ::-1]
+                            certainty[img.max(axis=-1) == 0]  = 0
+                            cols[1].image(certainty)
 
     if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
         images = []
