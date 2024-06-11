@@ -135,7 +135,7 @@ def get_model():
         else:
             model = st.session_state['model'][combination_method]
 
-    elif combination_method == "Dim. Reduction" and umap_model_folder:
+    elif combination_method == "Dim. Reduction UMAP" and umap_model_folder:
         if ('umap_model_folder' in st.session_state and st.session_state['umap_model_folder'] != umap_model_folder) \
                 or (st.session_state['model'][combination_method] is None) \
                 or ('umap_model_folder' not in st.session_state):
@@ -143,11 +143,12 @@ def get_model():
             model.load(umap_model_folder)
             st.session_state['umap_model_folder'] = umap_model_folder
         else:
+            print(f"loading {combination_method}")
             model = st.session_state['model'][combination_method]
 
     if model is not None:
         st.session_state['model'][combination_method] = model
-
+    print(model, nmf_model_name, umap_model_folder)
     return model
 
 
@@ -254,7 +255,8 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 if 'model' not in st.session_state:
-    st.session_state.model = {"Dim. Reduction": None,
+    st.session_state.model = {"Dim. Reduction NMF": None,
+                              "Dim. Reduction UMAP": None,
                               'Seg+Rare': None,
                               'Seg+SpectrumHeatmap': None,
                               'Seg+UMAP': None,
@@ -345,7 +347,8 @@ try:
             st.session_state.nmf_model_path = nmf_model_path
 
         combination_method = st.radio('Color Coding Method',
-                                      ["Dim. Reduction",
+                                      ["Dim. Reduction UMAP",
+                                       "Dim. Reduction NMF",
                                        "Segmentation",
                                        "Seg+UMAP",
                                        "Seg+SpectrumHeatmap",
@@ -384,7 +387,7 @@ try:
     with st.sidebar:
         st.divider()
         st.title('Region Settings')
-        if combination_method not in ["SpectrumHeatmap", "Dim. Reduction"]:
+        if combination_method not in ["SpectrumHeatmap", "Dim. Reduction UMAP", "Dim. Reduction NMF"]:
             region_selectbox = 0
             if image_to_show:
                 region_selectbox = st.selectbox(
@@ -546,6 +549,8 @@ try:
                         img)
                 else:
                     results["segmentation"] = model.factorize(img)
+                    
+                    print("seg", results["segmentation"].shape, results["segmentation"])
                 print("Factorization took", time.time() - t0)
 
                 st.session_state.results[path] = results
@@ -573,7 +578,7 @@ try:
                                 roi_mask[certainty_image < low] = 0
                                 roi_mask[certainty_image > high] = 0
 
-                    if combination_method == "Dim. Reduction":
+                    if combination_method in ["Dim. Reduction UMAP", "Dim. Reduction NMF"]:
                         sub_segmentation_mask, visualization = model.visualize_factorization(
                             img, segmentation_mask, method=output_normalization)
                         segmentation_mask_argmax = None
@@ -610,7 +615,7 @@ try:
                         segmentation_mask_argmax = None
 
                     certainty_image = None
-                    if combination_method != "SpectrumHeatmap" and combination_method != "Dim. Reduction":
+                    if combination_method != "SpectrumHeatmap" and combination_method not in ["Dim. Reduction UMAP", "Dim. Reduction NMF"]:
                         certainty_image = get_certainty(segmentation_mask)
                         certainty_image[img.max(axis=-1) == 0] = 0
                         certainty_image = np.uint8(certainty_image * 255)
@@ -620,6 +625,8 @@ try:
                     t0 = time.time()
                     print("generating correlation plots..")
                     random.seed(10)
+                    print("viz", visualization)
+                    st.image(visualization)
                     fig = get_correlation_plot(img, visualization, num_samples=num_samples)
                     fig2 = get_correlation_scatter_plot(img, visualization, num_samples=num_samples)
                     print("took", time.time() - t0)
@@ -653,7 +660,7 @@ try:
                 
 
                 num_cols = 2
-                if combination_method not in ["SpectrumHeatmap", "Dim. Reduction"]:
+                if combination_method not in ["SpectrumHeatmap", "Dim. Reduction NMF", "Dim. Reduction UMAP"]:
                     with st.container():
                         cols = st.columns(num_cols)
 

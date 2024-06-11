@@ -13,7 +13,7 @@ def normalize_channel(channel):
     channel[channel < 0] = 0
     channel = channel / np.percentile(channel, 99)
     channel[channel > 1] = 1
-    #channel = np.float32(cv2.equalizeHist(np.uint8(channel * 255))) / 255
+    channel = np.float32(cv2.equalizeHist(np.uint8(channel * 255))) / 255
     return channel
 
 class UMAPVirtualStain:
@@ -94,6 +94,8 @@ class MSIParametricUMAP:
         encoder = tf.keras.Sequential([
             tf.keras.layers.InputLayer(input_shape=(dims,)),
             tf.keras.layers.Dense(units=256, activation="relu"),
+            tf.keras.layers.BatchNormalization(),
+            tf.keras.layers.Dense(units=128, activation="relu"),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.Dense(units=64, activation="relu"),
             tf.keras.layers.BatchNormalization(),
