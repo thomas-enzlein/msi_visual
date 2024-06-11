@@ -87,6 +87,7 @@ with st.sidebar:
 
 
     method = st.selectbox('Dimensionality Reduction Method', ['1D Parametric UMAP', '3D Parametric UMAP', 'NMF 3D'])
+    normalization = st.radio('Normalization', ['tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=["total ion count", "spatial"])
 
 save_to_cache()
 
@@ -104,11 +105,11 @@ if output_path:
             end_bin = None
 
         if method == '1D Parametric UMAP':
-            model = parametric_umap.UMAPVirtualStain(n_components=1, start_bin=start_bin, end_bin=end_bin)
+            model = parametric_umap.UMAPVirtualStain(n_components=1, start_bin=start_bin, end_bin=end_bin, normalization=normalization)
         elif method == '3D Parametric UMAP':
-            model = parametric_umap.UMAPVirtualStain(n_components=3, start_bin=start_bin, end_bin=end_bin)
+            model = parametric_umap.UMAPVirtualStain(n_components=3, start_bin=start_bin, end_bin=end_bin, normalization=normalization)
         elif method == 'NMF 3D':
-            model = nmf_3d.NMF3D(start_bin=start_bin, end_bin=end_bin)
+            model = nmf_3d.NMF3D(start_bin=start_bin, end_bin=end_bin, normalization=normalization)
 
         if sub_sample:
             images = [np.load(p)[::int(sub_sample), ::int(sub_sample), :] for p in regions]

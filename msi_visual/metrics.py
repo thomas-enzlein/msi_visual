@@ -11,9 +11,10 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import cv2
 
-def get_correlation_plot(img, visualization_rgb, num_samples=300, title=None):
-    visualization = cv2.cvtColor(visualization_rgb, cv2.COLOR_RGB2LAB)
+def get_correlation_plot(img, visualization_rgb, num_samples=3000, title=None):
+    #visualization = cv2.cvtColor(visualization_rgb, cv2.COLOR_RGB2LAB)
     #visualization_rgb = visualization
+    visualization = visualization_rgb
     normalized = total_ion_count(img)
     nrow, ncol = normalized.shape[0], normalized.shape[1]
     points = np.mgrid[:nrow,:ncol].reshape(2, -1).T
@@ -74,7 +75,7 @@ def get_correlation_plot(img, visualization_rgb, num_samples=300, title=None):
     ax.set_yticks(list(np.arange(0, np.max(corr)+0.05, 0.05)))  
     return fig
 
-def get_correlation_scatter_plot(img, visualization_rgb, num_samples=300000, title=None):
+def get_correlation_scatter_plot(img, visualization_rgb, num_samples=3000, title=None):
     #visualization = cv2.cvtColor(visualization_rgb, cv2.COLOR_RGB2LAB)
     visualization = visualization_rgb
     normalized = total_ion_count(img)

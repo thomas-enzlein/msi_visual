@@ -2,12 +2,23 @@ from umap.parametric_umap import ParametricUMAP
 import tensorflow as tf
 import numpy as np
 import os
+import cv2
 from pathlib import Path
 import joblib
 from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 
+def normalize_channel(channel):
+    print(channel.min(), channel.max(), np.mean(channel))
+    channel = channel - np.percentile(channel, 1)
+    channel[channel < 0] = 0
+    channel = channel / np.percentile(channel, 99)
+    channel[channel > 1] = 1
+    #channel = np.float32(cv2.equalizeHist(np.uint8(channel * 255))) / 255
+    return channel
+
 class UMAPVirtualStain:
     def __init__(self, n_components=1, start_bin=0, end_bin=None, normalization='spatial_tic'):
+        self.n_components = n_components
         self.umap = MSIParametricUMAP(n_components=n_components, start_bin=start_bin, end_bin=end_bin, normalization='spatial_tic')
 
     def fit(self, images, keras_fit_kwargs):
@@ -26,6 +37,34 @@ class UMAPVirtualStain:
         self.encoder = tf.keras.models.load_model(Path(output_folder) / "umap.keras")
         
         self.umap = joblib.load(Path(output_folder) / "msi_umap.joblib")
+
+    def factorize(self, img):
+        result = self.predict(img)
+        for i in range(result.shape[-1]):
+            result[:, :, i] = normalize_channel(result[:, :, i])
+        result = np.uint8(255 * result)
+        result = cv2.cvtColor(result, cv2.COLOR_LAB2RGB)
+        result = np.float32(result) / 255
+
+        return result
+    
+    def visualize_factorization(self,
+                                img,
+                                contributions,
+                                method='spatial_norm'):
+
+        number_of_bins_for_comparison = 5
+        bins = np.linspace(0, 1, number_of_bins_for_comparison)
+        
+        digitized_a = np.digitize(contributions[:, :, 0], bins)
+        digitized_b = np.digitize(contributions[:, :, 1], bins)
+        digitized_c = np.digitize(contributions[:, :, 2], bins)
+
+        digitized = digitized_a * number_of_bins_for_comparison * number_of_bins_for_comparison + digitized_b * number_of_bins_for_comparison + digitized_c
+
+
+        return digitized, np.uint8(255 * contributions)    
+
 
 
 class MSIParametricUMAP:
@@ -55,8 +94,6 @@ class MSIParametricUMAP:
         encoder = tf.keras.Sequential([
             tf.keras.layers.InputLayer(input_shape=(dims,)),
             tf.keras.layers.Dense(units=256, activation="relu"),
-            tf.keras.layers.BatchNormalization(),
-            tf.keras.layers.Dense(units=128, activation="relu"),
             tf.keras.layers.BatchNormalization(),
             tf.keras.layers.Dense(units=64, activation="relu"),
             tf.keras.layers.BatchNormalization(),
