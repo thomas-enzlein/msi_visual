@@ -5,7 +5,8 @@ from msi_visual.normalization import spatial_total_ion_count, total_ion_count, m
 
 def percentile_ratio_rgb(img,
                          normalization='tic',
-                         percentiles = [99.99, 99.9, 99.9, 99, 98, 85], equalize=False):
+                         percentiles = [99.99, 99.9, 99.9, 99, 98, 85],
+                         equalize=False):
     norm_funtion = {'tic': total_ion_count, 'median': median_ion, 'spatial_tic': spatial_total_ion_count}[normalization]
     normalized = norm_funtion(img)
 

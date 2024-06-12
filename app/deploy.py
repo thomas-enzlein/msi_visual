@@ -2,6 +2,7 @@ import base64
 import hashlib
 from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 from msi_visual.percentile_ratio import percentile_ratio_rgb
+from msi_visual.percentile_ratio_segmentation import PercentileRatioSegmentation
 from msi_visual.metrics import get_correlation_plot, get_correlation_scatter_plot
 from msi_visual.auto_colorization import AutoColorizeRandom, AutoColorizeArea
 from msi_visual.avgmz import AvgMZVisualization
@@ -90,7 +91,8 @@ def model_hash():
 
 
 def get_model():
-    if nmf_model_name:
+    if nmf_model_name and ("NMF" in combination_method or "Seg" in combination_method):
+    #if nmf_model_name:
         if ('segmentation_model_path' in st.session_state and st.session_state[
                 'segmentation_model_path'] != nmf_model_name) or st.session_state['segmentation_model'] is None:
             nmf_model_path = [
@@ -107,7 +109,14 @@ def get_model():
                     st.session_state.color_schemes), model.k)
             st.session_state.color_schemes = ["gist_yarg"] * model.k
             st.session_state.region_importance = {}
-
+    
+    if combination_method == "PercentileRatio":
+        model = PercentileRatioSegmentation('tic', equalize)
+        # if st.session_state['model'][combination_method] is None:
+        #     model = PercentileRatioSegmentation('tic')
+        # else:
+        #     model = st.session_state['model'][combination_method]
+        
     if combination_method == "Seg+UMAP":
         if umap_model_folder:
             if st.session_state['model'][combination_method] is None:
@@ -265,7 +274,8 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 if 'model' not in st.session_state:
-    st.session_state.model = {"Dim. Reduction NMF": None,
+    st.session_state.model = {"PercentileRatio": None,
+                              "Dim. Reduction NMF": None,
                               "Dim. Reduction UMAP": None,
                               'Seg+Rare': None,
                               'Seg+SpectrumHeatmap': None,
@@ -356,8 +366,9 @@ try:
                 index=default)
             st.session_state.nmf_model_path = nmf_model_path
 
-        combination_method = st.radio('Color Coding Method',
-                                      ["Dim. Reduction UMAP",
+        combination_method = st.radio('Visualization Method',
+                                      ["PercentileRatio",
+                                       "Dim. Reduction UMAP",
                                        "Dim. Reduction NMF",
                                        "Segmentation",
                                        "Seg+UMAP",
@@ -366,16 +377,20 @@ try:
                                        "SpectrumHeatmap"],
                                       index=0)
 
-        umap_model_folder = st.text_input(
-            'UMAP Model folder (optional)',
-            value=cached_state['UMAP Model folder (optional)'])
+        if "UMAP" in combination_method:
+            umap_model_folder = st.text_input(
+                'UMAP Model folder (optional)',
+                value=cached_state['UMAP Model folder (optional)'])
+        else:
+            umap_model_folder = None
         st.session_state.umap_model_folder = umap_model_folder
         output_normalization = st.radio(
             "Select segmentation normalization", [
                 'spatial_norm', 'None'])
         sub_sample = 1
-        # sub_sample = st.number_input(
-        #     'Subsample pixels', min_value=1, value=None, step=1)
+        
+        if combination_method == "PercentileRatio":
+            equalize = st.checkbox("Equalize")
 
         num_samples = st.number_input('Samples for metrics', min_value=300, step=1)
 
@@ -397,7 +412,7 @@ try:
     with st.sidebar:
         st.divider()
         st.title('Region Settings')
-        if combination_method not in ["SpectrumHeatmap", "Dim. Reduction UMAP", "Dim. Reduction NMF"]:
+        if combination_method not in ["SpectrumHeatmap", "Dim. Reduction UMAP", "Dim. Reduction NMF", "PercentileRatio"]:
             region_selectbox = 0
             if image_to_show:
                 region_selectbox = st.selectbox(
@@ -514,18 +529,18 @@ try:
             st.session_state.images[path] = img
 
     col1, col2 = st.columns(2)
-    if image_to_show in st.session_state.pr:
-        pr = st.session_state.pr[image_to_show]
-    else:
-        with st.spinner(text="Generating High Saliency Percentile-Ratio Visualization.."):
-            mz_image = st.session_state.images[image_to_show]
-            t0 = time.time()
-            pr = percentile_ratio_rgb(mz_image, 'tic')
-            print("PR took", time.time()-t0)
-            st.session_state.pr[image_to_show] = pr
-    with col1:
-        st.text('High Saliency Percentile-Ratio visualization')
-        st.image(pr)
+    # if image_to_show in st.session_state.pr:
+    #     pr = st.session_state.pr[image_to_show]
+    # else:
+    #     with st.spinner(text="Generating High Saliency Percentile-Ratio Visualization.."):
+    #         mz_image = st.session_state.images[image_to_show]
+    #         t0 = time.time()
+    #         pr = percentile_ratio_rgb(mz_image, 'tic')
+    #         print("PR took", time.time()-t0)
+    #         st.session_state.pr[image_to_show] = pr
+    # with col1:
+    #     st.text('High Saliency Percentile-Ratio visualization')
+    #     st.image(pr)
 
     if start:
         st.session_state.setting_hash = None
@@ -559,8 +574,7 @@ try:
                         img)
                 else:
                     results["segmentation"] = model.factorize(img)
-                    
-                    print("seg", results["segmentation"].shape, results["segmentation"])
+                
                 print("Factorization took", time.time() - t0)
 
                 st.session_state.results[path] = results
@@ -588,7 +602,7 @@ try:
                                 roi_mask[certainty_image < low] = 0
                                 roi_mask[certainty_image > high] = 0
 
-                    if combination_method in ["Dim. Reduction UMAP", "Dim. Reduction NMF"]:
+                    if combination_method in ["Dim. Reduction UMAP", "Dim. Reduction NMF", "PercentileRatio"]:
                         sub_segmentation_mask, visualization = model.visualize_factorization(
                             img, segmentation_mask, method=output_normalization)
                         segmentation_mask_argmax = None
@@ -625,7 +639,7 @@ try:
                         segmentation_mask_argmax = None
 
                     certainty_image = None
-                    if combination_method != "SpectrumHeatmap" and combination_method not in ["Dim. Reduction UMAP", "Dim. Reduction NMF"]:
+                    if combination_method != "SpectrumHeatmap" and combination_method not in ["Dim. Reduction UMAP", "Dim. Reduction NMF", "PercentileRatio"]:
                         certainty_image = get_certainty(segmentation_mask)
                         certainty_image[img.max(axis=-1) == 0] = 0
                         certainty_image = np.uint8(certainty_image * 255)
@@ -655,23 +669,20 @@ try:
                 segmentation_mask_for_comparisons = st.session_state.results[
                     path]["segmentation_mask_for_comparisons"]
                 segmentation_mask_argmax = st.session_state.results[path]["segmentation_mask_argmax"]
-
-                visualization = st.session_state.results[path]["visualization"]
                 figures = st.session_state.results[path]["correlation_plot"]
                 
-                with col2:
-                    st.text('Computed visualization')
-                    point = streamlit_image_coordinates(visualization)
+                #with col2:
+                st.text('Computed visualization')
+                point = streamlit_image_coordinates(visualization)
 
                 for fig in figures:
                     st.pyplot(fig)
-                
 
                 num_cols = 2
-                if combination_method not in ["SpectrumHeatmap", "Dim. Reduction NMF", "Dim. Reduction UMAP"]:
-                    with st.container():
-                        cols = st.columns(num_cols)
+                with st.container():
+                    cols = st.columns(num_cols)
 
+                    if combination_method not in ["SpectrumHeatmap", "Dim. Reduction NMF", "Dim. Reduction UMAP", "PercentileRatio"]:
                         region_visualization = st.session_state.results[path]["visualization"].copy(
                         )
                         mask = np.uint8(
@@ -683,24 +694,24 @@ try:
                         cols[0].text(f'Selected Region {region_selectbox}')
                         cols[0].image(region_visualization)
 
-                        if point is not None:
-                            if path in st.session_state.coordinates and point in [
-                                    p for p in st.session_state.coordinates[path]]:
-                                pass
-                            else:
-                                st.session_state.coordinates[path].append(
-                                    point)
-                                st.session_state.coordinates[path] = st.session_state.coordinates[path][-2:]
+                    if point is not None:
+                        if path in st.session_state.coordinates and point in [
+                                p for p in st.session_state.coordinates[path]]:
+                            pass
+                        else:
+                            st.session_state.coordinates[path].append(
+                                point)
+                            st.session_state.coordinates[path] = st.session_state.coordinates[path][-2:]
 
-                        if st.session_state.results[path]["certainty_image"] is not None:
-                            cols[1].text('Visualization of confidence')
-                            certainty = np.uint8(
-                                255 * st.session_state.results[path]["certainty_image"])
-                            certainty = cv2.applyColorMap(
-                                certainty, cmapy.cmap("viridis"))
-                            certainty = certainty[:, :, ::-1]
-                            certainty[img.max(axis=-1) == 0] = 0
-                            cols[1].image(certainty)
+                    if st.session_state.results[path]["certainty_image"] is not None:
+                        cols[1].text('Visualization of confidence')
+                        certainty = np.uint8(
+                            255 * st.session_state.results[path]["certainty_image"])
+                        certainty = cv2.applyColorMap(
+                            certainty, cmapy.cmap("viridis"))
+                        certainty = certainty[:, :, ::-1]
+                        certainty[img.max(axis=-1) == 0] = 0
+                        cols[1].image(certainty)
 
     if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
         images = []
