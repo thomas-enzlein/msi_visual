@@ -33,15 +33,25 @@ def percentile_ratio_rgb(img,
     c = c / np.percentile(c, 99.9)
     c[c > 1] = 1
 
-    visualization = cv2.merge([(np.uint8(255*a)), (np.uint8(255*b)), (np.uint8(255*c))])
+    if equalize:
+        visualization = cv2.merge([cv2.equalizeHist(np.uint8(255*a)),
+                                   cv2.equalizeHist(np.uint8(255*b)),
+                                   cv2.equalizeHist(np.uint8(255*c))])
+
+
+    else:
+        visualization = cv2.merge([(np.uint8(255*a)),
+                                   (np.uint8(255*b)),
+                                   (np.uint8(255*c))])
+
 
 
     visualization = cv2.cvtColor(visualization, cv2.COLOR_LAB2LRGB)
 
-    if equalize:
-        visualization = cv2.merge([cv2.equalizeHist(visualization[:, :, 0]),
-                                   cv2.equalizeHist(visualization[:, :, 1]),
-                                   cv2.equalizeHist(visualization[:, :, 2])])
+    # if equalize:
+    #     visualization = cv2.merge([cv2.equalizeHist(visualization[:, :, 0]),
+    #                                cv2.equalizeHist(visualization[:, :, 1]),
+    #                                cv2.equalizeHist(visualization[:, :, 2])])
 
 
 
