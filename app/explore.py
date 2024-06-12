@@ -17,6 +17,18 @@ from msi_visual.app_utils.extraction_info import display_paths_to_extraction_pat
     get_files_from_folder
 from keras.callbacks import Callback
 
+def save_data(path=None):
+    folder = "percentile_ratio_images"
+    os.makedirs(folder, exist_ok=True)
+    if path is None:
+        paths = list(st.session_state.pr.keys())
+    else:
+        paths = [path]
+    for path in paths:
+        image_name = path.replace("/", "_").replace("\\", "_").replace(".", "_").replace(":", "_")
+        Image.fromarray(st.session_state.pr[path]).save(Path(folder) /
+                                f"{image_name}_pr.png")
+
 # Either this or add_indentation() MUST be called on each page in your
 # app to add indendation in the sidebar
 add_page_title()
@@ -47,6 +59,9 @@ for path in regions:
         with st.spinner(text=f"Generating High Saliency Percentile-Ratio Visualization for {path}.."):
             img = np.load(path)
             pr = percentile_ratio_rgb(img)
+            st.session_state.pr[path] = pr
     
     st.text(path)
     st.image(pr)
+
+    save_data(path=path)

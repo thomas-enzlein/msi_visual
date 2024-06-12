@@ -3,12 +3,16 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from scipy.signal import find_peaks
 import cv2
+import scipy
+import math
 import tqdm
+import time
 from collections import defaultdict
 from sklearn.metrics import roc_auc_score
 import cmapy
 from PIL import Image
 from functools import lru_cache
+from sklearn.ensemble import RandomForestClassifier
 
 from msi_visual.utils import set_region_importance
 
@@ -287,24 +291,53 @@ class RegionComparison:
         self.visualization = visualization
         self.start_mz = start_mz
         self.bins_per_mz = bins_per_mz
-    
+
+    def model_based_comparison(self, values_a, values_b):
+        t0 = time.time()
+        clf = RandomForestClassifier(max_depth=2, random_state=0)
+        both = np.concatenate((values_a, values_b), axis=0)
+        labels  = [0] * len(values_a) + [1] * len(values_b)
+        clf.fit(both, labels)
+        print(f"rf fit took {time.time()-t0}")
+
+
     def ranking_comparison(self, mask_a, mask_b, peak_minimum=0.000001 * 1e10):
         values_a = self.mz_image[mask_a > 0]
         values_b = self.mz_image[mask_b > 0]
+        #self.model_based_comparison(values_a, values_b)
+        t0 = time.time()
 
-        both = np.concatenate((values_a, values_b), axis=0)
-        peaks_a = np.percentile(values_a, 30, axis=0)
-        peaks_a, _ = find_peaks(peaks_a, height=(peak_minimum, None))
-        peaks_b = np.percentile(values_b, 30, axis=0)
-        peaks_b, _ = find_peaks(peaks_b, height=(peak_minimum, None))
+        peaks_a30, _ = find_peaks(np.percentile(values_a, 30, axis=0), height=(peak_minimum, None))
+        peaks_b30, _ = find_peaks(np.percentile(values_b, 30, axis=0), height=(peak_minimum, None))
+        
+        peaks = list(peaks_a30) + list(peaks_b30)
+        peaks = sorted(list(set(peaks)))
 
-        labels  = [0] * len(values_a) + [1] * len(values_b)
-        peaks = list(peaks_a) + list(peaks_b)
-        aucs = defaultdict(float)
-        for mz in tqdm.tqdm(peaks):
-            auc = roc_auc_score(labels, both[:, mz])
-            aucs[mz] += auc
-        return aucs
+
+        result = scipy.stats.mannwhitneyu(values_b[:, peaks], values_a[:, peaks], keepdims=True)
+        us = result.statistic[0, :]
+        p = result.pvalue[0, :]
+        print("u test took", time.time() - t0)
+
+        result = us / (values_a.shape[0] * values_b.shape[0])
+        result = dict(zip(range(len(result)), result))
+        
+        result = {peaks[index]: u for index, u in result.items() if p[index] < 0.05}
+        return result
+
+        # both = np.concatenate((values_a, values_b), axis=0)
+        # peaks_a = np.percentile(values_a, 30, axis=0)
+        # peaks_a, _ = find_peaks(peaks_a, height=(peak_minimum, None))
+        # peaks_b = np.percentile(values_b, 30, axis=0)
+        # peaks_b, _ = find_peaks(peaks_b, height=(peak_minimum, None))
+
+        # labels  = [0] * len(values_a) + [1] * len(values_b)
+        # peaks = list(peaks_a) + list(peaks_b)
+        # aucs = defaultdict(float)
+        # for mz in tqdm.tqdm(peaks):
+        #     auc = roc_auc_score(labels, both[:, mz])
+        #     aucs[mz] += auc
+        # return aucs
 
     def compare_one_point(self, point, size=3):
         x, y = point
@@ -347,29 +380,20 @@ class RegionComparison:
         color_a = color_a.mean(axis=0)
         color_b = self.visualization[mask_b > 0].mean(axis=0)
 
+        aucs = {(self.start_mz + mz/self.bins_per_mz) : aucs[mz] for mz in aucs}
+
         image = self._create_auc_visualization(aucs, color_a, color_b)
-        return image, label_a, label_b
+
+        return image, label_a, label_b, (color_a, color_b, aucs)
 
     def _create_auc_visualization(self, aucs, color_a, color_b):
         combination = np.hstack((color_a * np.ones((100, 100, 3), dtype=np.uint8), color_b * np.ones((100, 100, 3), dtype=np.uint8)))
         combination = np.uint8(combination)
-        cells = []
-        top_pos_auc = {k: v for k, v in sorted(aucs.items(), key=lambda item: item[1])[::-1][:10]}
-        top_mzs_from_both = {}
-        top_neg_auc = {k: v for k, v in sorted(aucs.items(), key=lambda item: -item[1])[::-1][:10]}
+        cells = []                
+        sorted_indices = sorted(list(aucs.keys()), key = lambda mz: aucs[mz], reverse=True)
 
-        for k, v in top_neg_auc.items():
-            if v < 0.5:
-                top_mzs_from_both[k] = v
-
-        for k, v in top_pos_auc.items():
-            if v > 0.5:
-                top_mzs_from_both[k] = v
-        for mz, auc in top_mzs_from_both.items():
-
-            if abs(2*auc - 1) < 0.1:
-                continue
-            mz = self.start_mz + mz/self.bins_per_mz
+        for mz in sorted_indices:
+            auc = aucs[mz]
             cell = np.ones((100, 100, 3), dtype=np.uint8) * 255
 
             if auc > 0.5:
@@ -393,11 +417,24 @@ class RegionComparison:
                 thickness,
                 lineType) 
             cells.append(cell)
-        if len(cells) < 20:
+        if len(cells) <= 20:
             for _ in range(20 - len(cells)):
                 cells.append(np.ones((100, 100, 3), dtype=np.uint8) * 255)
-
-        cells = np.hstack(cells)
-        cells = np.hstack((combination, cells))        
-        return cells
+            result = np.hstack(cells)
+            #result = np.hstack((combination, result))        
+        elif len(cells) > 20:
+            result = []
+            for i in range(math.ceil(len(cells) / 20)):
+                row = cells[i * 20 : i * 20 + 20]
+                if len(row) < 20:
+                    for _ in range(20 - len(row)):
+                        row.append(np.ones((100, 100, 3), dtype=np.uint8) * 255)
+                row = np.hstack(row)
+                #row = np.hstack((combination, row))
+                result.append(row)
+            print(len(result))
+            result = np.vstack(result)
+            print(result.shape)
+            
+        return result
     
