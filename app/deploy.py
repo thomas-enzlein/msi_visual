@@ -20,6 +20,7 @@ import os
 import traceback
 import datetime
 import json
+import math
 import sys
 import time
 from PIL import Image
@@ -31,6 +32,8 @@ from collections import defaultdict
 from argparse import Namespace
 from st_pages import show_pages_from_config, add_page_title
 from streamlit_image_coordinates import streamlit_image_coordinates
+from streamlit_extras.stylable_container import stylable_container
+
 from pathlib import Path
 import importlib
 import cmapy
@@ -40,7 +43,6 @@ import random
 import msi_visual
 importlib.reload(msi_visual)
 importlib.reload(visualizations)
-
 
 def make_hash_sha256(o):
     hasher = hashlib.md5()
@@ -151,6 +153,15 @@ def get_model():
     print(model, nmf_model_name, umap_model_folder)
     return model
 
+def create_ion_image(mz, image_to_show):
+    mz_image = st.session_state.results[image_to_show]["mz_image"]
+    val = int(
+        (float(mz) -
+            st.session_state.extraction_start_mz) *
+        st.session_state.bins)
+    mz_img = visualizations.create_ion_image(mz_image, val)
+    st.session_state.ion_image = (mz, mz_img)
+    st.image(mz_img)
 
 def auto_colorization():
     result = st.session_state.results[path]
@@ -625,8 +636,6 @@ try:
                     t0 = time.time()
                     print("generating correlation plots..")
                     random.seed(10)
-                    print("viz", visualization)
-                    st.image(visualization)
                     fig = get_correlation_plot(img, visualization, num_samples=num_samples)
                     fig2 = get_correlation_scatter_plot(img, visualization, num_samples=num_samples)
                     print("took", time.time() - t0)
@@ -736,22 +745,35 @@ try:
                     point_a = int(point_a['x']), int(point_a['y'])
                     point_b = st.session_state.coordinates[image_to_show][1]
                     point_b = int(point_b['x']), int(point_b['y'])
-                    image, label_a, label_b = diff.visualize_comparison_between_points(
+                    image, label_a, label_b, (color_a, color_b, aucs) = diff.visualize_comparison_between_points(
                         point_a, point_b)
+
+                    pos_aucs = {mz: -aucs[mz] for mz in aucs if aucs[mz] < 0.5}
+                    neg_aucs = {mz: aucs[mz] for mz in aucs if aucs[mz] > 0.5}
+                    for aucs, color in zip([pos_aucs, neg_aucs], [color_a, color_b]):
+                        header_cols = st.columns(2)
+                        header_cols[0].text('m/z values for ')
+                        header_cols[1].image(np.uint8(color * np.ones((64, 64, 3))))
+                        sorted_indices = sorted(list(aucs.keys()), key = lambda mz: aucs[mz], reverse=True)                        
+                        N = 9
+                        col_array = st.columns(N)
+                        num_rows = math.ceil(len(sorted_indices) / N)
+                        for row in range(num_rows):
+                            indices = sorted_indices[N * row : N * row + N]
+                            indices = indices + [None] * (N -len(indices))
+                            for i, (mz, col) in enumerate(zip(indices, st.columns(len(indices)))):
+                                if mz is None:
+                                    col.button("", key=f"default+{i}", disabled=True, use_container_width=True)
+                                elif col.button(f"{mz}", use_container_width=True):
+                                    create_ion_image(mz, image_to_show)
                     st.image(image)
+
                     st.session_state.latest_diff = (
                         image, visualization, label_a, label_b)
     if image_to_show:
         mz = st.text_input('Create ION image for m/z:')
         if mz:
-            mz_image = st.session_state.results[image_to_show]["mz_image"]
-            val = int(
-                (float(mz) -
-                    st.session_state.extraction_start_mz) *
-                st.session_state.bins)
-            mz_img = visualizations.create_ion_image(mz_image, val)
-            st.session_state.ion_image = (mz, mz_img)
-            st.image(mz_img)
+            create_ion_image(mz, image_to_show)
 
     save_data()
 
