@@ -32,7 +32,6 @@ from collections import defaultdict
 from argparse import Namespace
 from st_pages import show_pages_from_config, add_page_title
 from streamlit_image_coordinates import streamlit_image_coordinates
-from streamlit_extras.stylable_container import stylable_container
 
 from pathlib import Path
 import importlib
