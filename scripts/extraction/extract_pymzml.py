@@ -63,23 +63,10 @@ def get_image(
     p = ImzMLParser(path)
     my_spectra = []
     
-    # xs, ys = np.int32(xs), np.int32(ys)
-    # xs = xs - np.min(xs)
-    # ys = ys - np.min(ys)
-    # width = np.max(xs) + 1
-    # height = np.max(ys) + 1
-    # regions = [r[0] for r in regions]
-    # start_index = regions.index(region)
-    # print(f"Start index for region {region} is {start_index}")
-    # num_mzs = max_mz - min_mz + 1
-    # img = np.zeros((height, width, bins_per_mz * num_mzs), dtype=np.float32)
-
     xs = []
     ys = []
     all_mzs = []
     all_intensities = []
-    min_mz = 10000000
-    max_mz = 0
     print(len(p.coordinates))
     for idx, (x,y,z) in tqdm.tqdm(enumerate(p.coordinates), total=len(p.coordinates)):
         mzs, intensities = p.getspectrum(idx)
@@ -87,13 +74,7 @@ def get_image(
         ys.append(y)
         all_mzs.append(mzs)
         all_intensities.append(intensities)
-        min_mz = min(min_mz, min(mzs))
-        max_mz = max(max_mz, max(mzs))
 
-    min_mz = int(min_mz)
-    max_mz = int(round(max_mz))
-
-    print("min/max mz", min_mz, max_mz)
     xs, ys = np.int32(xs), np.int32(ys)
     xs = xs - np.min(xs)
     ys = ys - np.min(ys)
@@ -117,10 +98,14 @@ if __name__ == "__main__":
     input_path = args.input_path
     output_path = args.output_path
 
+    args_description = str(args)
+    with open(os.path.join(output_path, "args.txt"), "w") as f:
+        f.write(args_description)
+
     os.makedirs(output_path, exist_ok=True)
     
 
-    args.start_mz, args.end_mz = get_image(input_path,
+    get_image(input_path,
          os.path.join(
              output_path,
              f"{0}.npy"),
@@ -130,6 +115,3 @@ if __name__ == "__main__":
             args.tol,
             args.bins)
     
-    args_description = str(args)
-    with open(os.path.join(output_path, "args.txt"), "w") as f:
-        f.write(args_description)
