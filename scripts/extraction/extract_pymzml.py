@@ -19,6 +19,9 @@ def get_args():
     parser.add_argument('--end_mz', type=int, default=1300)
     parser.add_argument('--input_path', type=str, required=True,
                         help='.d folder')
+    parser.add_argument('--nonzero', action='store_true', default=False,
+                        help='Save only m/zs that have a non zero value anywhere')
+
     parser.add_argument('--output_path', type=str, required=True,
                         help='Where to store the output .npy files')
     parser.add_argument(
@@ -58,7 +61,8 @@ def get_image(
         min_mz: int = 300,
         max_mz: int = 1350,
         tol: Optional[float] = None,
-        bins_per_mz: int = 1):
+        bins_per_mz: int = 1,
+        nonzero=False):
     
     p = ImzMLParser(path)
     my_spectra = []
@@ -67,7 +71,6 @@ def get_image(
     ys = []
     all_mzs = []
     all_intensities = []
-    print(len(p.coordinates))
     for idx, (x,y,z) in tqdm.tqdm(enumerate(p.coordinates), total=len(p.coordinates)):
         mzs, intensities = p.getspectrum(idx)
         indices = [i for i in range(len(mzs)) if mzs[i] >= min_mz and mzs[i] <= max_mz]
@@ -92,8 +95,20 @@ def get_image(
         bins = np.int32(np.round((np.float32(mzs) - min_mz) * bins_per_mz))
         img[y, x, bins] = img[y, x, bins] + intensities
 
+    mzs = np.arange(min_mz, max_mz + 1, 1.0/bins_per_mz)
+    print("shapes", len(mzs), img.shape[-1])
+
+    indices = list(range(img.shape[-1]))
+    if nonzero:
+        m = img.max(axis=(0, 1))
+        indices = [i for i in range(img.shape[-1]) if m[i] > 0]
+        img = img[:, :, indices]
+    
+    mzs = [float(f"{mzs[i]:.6f}") for i in indices]
+    
+
     np.save(output_path, img)
-    return min_mz, max_mz
+    return mzs
 
 if __name__ == "__main__":
     args = get_args()
@@ -102,14 +117,10 @@ if __name__ == "__main__":
     input_path = args.input_path
     output_path = args.output_path
 
-    args_description = str(args)
-    with open(os.path.join(output_path, "args.txt"), "w") as f:
-        f.write(args_description)
 
     os.makedirs(output_path, exist_ok=True)
     
-
-    get_image(input_path,
+    mzs = get_image(input_path,
          os.path.join(
              output_path,
              f"{0}.npy"),
@@ -117,5 +128,10 @@ if __name__ == "__main__":
             args.start_mz,
             args.end_mz,
             args.tol,
-            args.bins)
-    
+            args.bins,
+            args.nonzero)
+
+    args.mzs = mzs
+    args_description = str(args)
+    with open(os.path.join(output_path, "args.txt"), "w") as f:
+        f.write(args_description)
