@@ -163,11 +163,8 @@ def get_model():
 
 def create_ion_image(mz, image_to_show):
     mz_image = st.session_state.results[image_to_show]["mz_image"]
-    val = int(
-        (float(mz) -
-            st.session_state.extraction_start_mz) *
-        st.session_state.bins)
-    mz_img = visualizations.create_ion_image(mz_image, val)
+    mz_index = st.session_state.extraction_mzs.index(mz)
+    mz_img = visualizations.create_ion_image(mz_image, mz_index)
     st.session_state.ion_image = (mz, mz_img)
     st.image(mz_img)
 
@@ -300,6 +297,8 @@ if 'images' not in st.session_state:
 if 'pr' not in st.session_state:
     st.session_state.pr = { }
 
+regions = []
+
 results = {}
 image_to_show = None
 if 'run_id' not in st.session_state:
@@ -324,11 +323,15 @@ try:
             extraction_folders_keys = list(extraction_folders.keys())
             if cached_state['Extraction folder'] == '':
                 cached_state['Extraction folder'] = extraction_folders_keys[0]
+            if cached_state['Extraction folder'] in extraction_folders_keys:
+                extraction_folders_keys_index =  extraction_folders_keys.index(
+                        cached_state['Extraction folder'])
+            else:
+                extraction_folders_keys_index = None
             selected_extraction = st.selectbox(
                 'Extraction folder',
                 extraction_folders_keys,
-                index=extraction_folders_keys.index(
-                    cached_state['Extraction folder']))
+                index=extraction_folders_keys_index)
             if selected_extraction:
                 extraction_folder = extraction_folders[selected_extraction]
                 region_list = get_files_from_folder(extraction_folder)
@@ -525,7 +528,7 @@ try:
                     ::int(sub_sample), ::int(sub_sample), :]
             else:
                 img = np.load(path)
-            img = np.float32(img)
+                img = np.float32(img)[::2, ::2, :]
             st.session_state.images[path] = img
 
     col1, col2 = st.columns(2)
@@ -556,8 +559,9 @@ try:
                     Path(extraction_folder) /
                     "args.txt").read())
             st.session_state.bins = extraction_args.bins
-            st.session_state.extraction_start_mz = extraction_args.start_mz
-            st.session_state.extraction_end_mz = extraction_args.end_mz
+            #st.session_state.extraction_start_mz = extraction_args.start_mz
+            #st.session_state.extraction_end_mz = extraction_args.end_mz
+            st.session_state.extraction_mzs = extraction_args.mzs
 
             if 'results' in st.session_state:
                 del st.session_state.results
@@ -743,7 +747,7 @@ try:
                             mz_image,
                             segmentation_mask_for_comparisons,
                             visualization,
-                            start_mz=st.session_state.extraction_start_mz,
+                            mzs=st.session_state.extraction_mzs,
                             bins_per_mz=st.session_state.bins)
                         st.session_state.difference_visualizations[image_to_show] = diff
                     else:

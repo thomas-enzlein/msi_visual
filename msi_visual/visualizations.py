@@ -250,8 +250,8 @@ def get_difference_summary_table(region_gray_image, digitized, bins, top_mzs, co
     return rows
 
 
-def create_ion_image(img, mz):
-    ion = img[:, :, mz]
+def create_ion_image(img, mz_index):
+    ion = img[:, :, mz_index]
     ion = ion / np.percentile(ion[:], 99)
     ion[ion > 1] = 1
     ion = np.uint8(255 * ion)
@@ -285,11 +285,11 @@ class ObjectsComparison:
         values_b = self.mz_image[mask > 0]
 
 class RegionComparison:
-    def __init__(self, mz_image, segmentation_mask, visualization, start_mz=300, bins_per_mz=5):
+    def __init__(self, mz_image, segmentation_mask, visualization, mzs, bins_per_mz=5):
         self.mz_image = mz_image
         self.segmentation_mask = segmentation_mask
         self.visualization = visualization
-        self.start_mz = start_mz
+        self.mzs = mzs
         self.bins_per_mz = bins_per_mz
 
     def model_based_comparison(self, values_a, values_b):
@@ -301,7 +301,7 @@ class RegionComparison:
         print(f"rf fit took {time.time()-t0}")
 
 
-    def ranking_comparison(self, mask_a, mask_b, peak_minimum=0.000001 * 1e10):
+    def ranking_comparison(self, mask_a, mask_b, peak_minimum=0):
         values_a = self.mz_image[mask_a > 0]
         values_b = self.mz_image[mask_b > 0]
         #self.model_based_comparison(values_a, values_b)
@@ -380,7 +380,7 @@ class RegionComparison:
         color_a = color_a.mean(axis=0)
         color_b = self.visualization[mask_b > 0].mean(axis=0)
 
-        aucs = {(self.start_mz + mz/self.bins_per_mz) : aucs[mz] for mz in aucs}
+        aucs = {self.mzs[mz_index] : aucs[mz_index] for mz_index in aucs}
 
         image = self._create_auc_visualization(aucs, color_a, color_b)
 
