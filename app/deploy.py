@@ -568,7 +568,10 @@ try:
             try:
                 st.session_state.extraction_mzs = extraction_args.mzs
             except Exception as e:
-                st.session_state.extraction_mzs = np.arange(st.session_state.extraction_start_mz, st.session_state.extraction_end_mz + 1, 1.0/st.session_state.bins)
+                st.session_state.extraction_mzs = list(np.arange(st.session_state.extraction_start_mz, st.session_state.extraction_end_mz + 1, 1.0/st.session_state.bins))
+
+                st.session_state.extraction_mzs = [float(f"{mz:.3f}") for mz in st.session_state.extraction_mzs]
+
 
             if 'results' in st.session_state:
                 del st.session_state.results
