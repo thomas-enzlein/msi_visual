@@ -5,6 +5,7 @@ import json
 import sys
 import numpy as np
 import joblib
+import datetime
 from pathlib import Path
 from argparse import Namespace
 from PIL import Image
@@ -156,6 +157,9 @@ if start:
     os.makedirs(output_path_folder, exist_ok=True)
     joblib.dump(seg, output_path)
 
-    for img in seg.visualize_training_components(images):
+    for index, img in enumerate(seg.visualize_training_components(images)):
         st.image(img)
         
+        folder = datetime.datetime.today().strftime('%Y-%m-%d')
+        os.makedirs(folder, exist_ok=True)
+        Image.fromarray(img).save(Path(folder) / f"{model_type}_{number_of_components}_{index}.png")
