@@ -44,6 +44,10 @@ import msi_visual
 importlib.reload(msi_visual)
 importlib.reload(visualizations)
 
+add_page_title()
+
+show_pages_from_config()
+
 def make_hash_sha256(o):
     hasher = hashlib.md5()
     hasher.update(repr(make_hashable(o)).encode())
