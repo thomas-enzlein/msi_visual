@@ -563,9 +563,12 @@ try:
                     Path(extraction_folder) /
                     "args.txt").read())
             st.session_state.bins = extraction_args.bins
-            #st.session_state.extraction_start_mz = extraction_args.start_mz
-            #st.session_state.extraction_end_mz = extraction_args.end_mz
-            st.session_state.extraction_mzs = extraction_args.mzs
+            st.session_state.extraction_start_mz = extraction_args.start_mz
+            st.session_state.extraction_end_mz = extraction_args.end_mz
+            try:
+                st.session_state.extraction_mzs = extraction_args.mzs
+            except Exception as e:
+                st.session_state.extraction_mzs = np.arange(st.session_state.extraction_start_mz, st.session_state.extraction_end_mz + 1, 1.0/st.session_state.bins)
 
             if 'results' in st.session_state:
                 del st.session_state.results
