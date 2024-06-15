@@ -13,7 +13,7 @@ def normalize_channel(channel):
     return channel
 
 class NMF3D:
-    def __init__(self, normalization='spatial_tic', start_bin=0, end_bin=None, max_iter=200):
+    def __init__(self, normalization='spatial_tic', start_bin=0, end_bin=None, max_iter=2000):
         self.k = 3
         self.normalization = {'tic': total_ion_count, 'median': median_ion, 'spatial_tic': spatial_total_ion_count}[normalization]
         self.start_bin = start_bin
