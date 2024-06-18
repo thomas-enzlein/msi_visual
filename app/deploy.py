@@ -351,6 +351,9 @@ if st.session_state.color_schemes == '':
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
 
+if 'ion_image' not in st.session_state:
+    st.session_state['ion_image'] = None
+
 if 'comparison_results' not in st.session_state:
     st.session_state['comparison_results'] = {}
 
@@ -901,14 +904,16 @@ try:
                         color_b,
                         threshold=0.5,
                         title='Comparing Regions')
-                    st.image(st.session_state.ion_image[1])
+                    if st.session_state.ion_image:
+                        st.image(st.session_state.ion_image[1])
                     display_mzs(
                         point_aucs,
                         color_a,
                         color_b,
                         threshold=0.5,
                         title='Comparing Clicked points')
-                    st.image(st.session_state.ion_image[1])
+                    if st.session_state.ion_image:
+                        st.image(st.session_state.ion_image[1])
 
                     st.session_state.latest_diff = (
                         image, visualization, label_a, label_b)
