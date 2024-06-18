@@ -48,6 +48,7 @@ add_page_title()
 
 show_pages_from_config()
 
+
 def make_hash_sha256(o):
     hasher = hashlib.md5()
     hasher.update(repr(make_hashable(o)).encode())
@@ -78,6 +79,7 @@ def get_settings():
             'Segmentation model': nmf_model_name,
             'Image to show': image_to_show,
             'output_normalization': output_normalization,
+            'input_normalization': input_normalization,
             'color_schemes': st.session_state.color_schemes,
             'region_importance': st.session_state.region_importance,
             'current_color_scheme': current_color_scheme}
@@ -94,9 +96,61 @@ def model_hash():
     return make_hash_sha256(settings)
 
 
+def display_mzs(aucs_to_display, color_a, color_b, threshold=0.5, title=None):
+
+    pos_aucs = {mz: -aucs_to_display[mz]
+                for mz in aucs_to_display if aucs_to_display[mz] < threshold}
+    neg_aucs = {
+        mz: aucs_to_display[mz] for mz in aucs_to_display if aucs_to_display[mz] > (
+            1 - threshold)}
+
+    pos_aucs_keys = sorted(list(pos_aucs.keys()),
+                           key=lambda x: pos_aucs[x])[-num_mzs:]
+    neg_aucs_keys = sorted(list(neg_aucs.keys()),
+                           key=lambda x: neg_aucs[x])[-num_mzs:]
+
+    pos_aucs = {mz: pos_aucs[mz] for mz in pos_aucs_keys}
+    neg_aucs = {mz: neg_aucs[mz] for mz in neg_aucs_keys}
+
+    print(f"display_mzs: {title} {len(neg_aucs)} {len(pos_aucs)}")
+    for auc_group, color in zip([pos_aucs, neg_aucs], [color_a, color_b]):
+        header_cols = st.columns(2)
+        header_cols[0].text(f'{title} m/z values for ')
+        header_cols[1].image(np.uint8(color * np.ones((64, 64, 3))))
+        sorted_indices = sorted(
+            list(
+                auc_group.keys()),
+            key=lambda mz: aucs_to_display[mz],
+            reverse=True)
+        N = 8
+        num_rows = math.ceil(len(sorted_indices) / N)
+        for row in range(num_rows):
+            indices = sorted_indices[N * row: N * row + N]
+            indices = indices + [None] * (N - len(indices))
+            for i, (mz, col) in enumerate(
+                    zip(indices, st.columns(len(indices)))):
+                if mz is None:
+                    col.button(
+                        "",
+                        key=f"{st.session_state.run_id}+{title}+default+{i}+{row}+{col}+{mz}",
+                        disabled=True,
+                        use_container_width=True)
+                else:
+                    col.button(
+                        f"{mz}",
+                        use_container_width=True,
+                        key=f"{str(st.session_state.run_id)}+{title}+{mz}+{i}+{row}+{col}",
+                        on_click=create_ion_image,
+                        args=[
+                            mz,
+                            image_to_show])
+                    # create_ion_image(mz, image_to_show)
+
+
 def get_model():
-    if nmf_model_name and ("NMF" in combination_method or "Seg" in combination_method):
-    #if nmf_model_name:
+    if nmf_model_name and (
+            "NMF" in combination_method or "Seg" in combination_method):
+        # if nmf_model_name:
         if ('segmentation_model_path' in st.session_state and st.session_state[
                 'segmentation_model_path'] != nmf_model_name) or st.session_state['segmentation_model'] is None:
             nmf_model_path = [
@@ -113,14 +167,14 @@ def get_model():
                     st.session_state.color_schemes), model.k)
             st.session_state.color_schemes = ["gist_yarg"] * model.k
             st.session_state.region_importance = {}
-    
+
     if combination_method == "PercentileRatio":
         model = PercentileRatioSegmentation('tic', equalize)
         # if st.session_state['model'][combination_method] is None:
         #     model = PercentileRatioSegmentation('tic')
         # else:
         #     model = st.session_state['model'][combination_method]
-        
+
     if combination_method == "Seg+UMAP":
         if umap_model_folder:
             if st.session_state['model'][combination_method] is None:
@@ -165,15 +219,34 @@ def get_model():
     print(model, nmf_model_name, umap_model_folder)
     return model
 
+
 def create_ion_image(mz, image_to_show):
-    mz_image = st.session_state.results[image_to_show]["mz_image"]
+    mz_image = st.session_state.results[input_normalization +
+                                        image_to_show]["mz_image"]
+    print("create_ion_image", mz)
     mz_index = st.session_state.extraction_mzs.index(mz)
-    mz_img = visualizations.create_ion_image(mz_image, mz_index)
+    print("create_ion_image", mz_index)
+    mz_img = visualizations.create_ion_image(mz_image, mz_index) * 1
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    bottomLeftCornerOfText = (5, 20)
+    fontScale = 0.5
+    fontColor = (255, 255, 255)
+    thickness = 1
+    lineType = 1
+    mz_img = cv2.putText(mz_img, f"{mz:.3f}",
+                         bottomLeftCornerOfText,
+                         font,
+                         fontScale,
+                         fontColor,
+                         thickness,
+                         lineType)
+
     st.session_state.ion_image = (mz, mz_img)
-    st.image(mz_img)
+
 
 def auto_colorization():
-    result = st.session_state.results[path]
+    result = st.session_state.results[input_normalization + image_to_show]
     if "heatmap" in result:
         st.title('Auto Colorization 🎨')
         low_var_ratio = st.slider('Fraction', 0.0, 1.0, step=0.05, value=0.5)
@@ -222,7 +295,8 @@ def save_data():
                     Image.fromarray(heatmap).save(
                         Path(folder) / f"{image_name}_{[label_a, label_b][index]}_{prefix}_mask.png")
         else:
-            visualization = st.session_state.results[image_to_show]["visualization"]
+            visualization = st.session_state.results[input_normalization +
+                                                     image_to_show]["visualization"]
         Image.fromarray(visualization).save(
             Path(folder) / f"{image_name}_{prefix}.png")
 
@@ -236,8 +310,10 @@ def save_data():
             Image.fromarray(k_seg).save(Path(folder) /
                                         f"{image_name}_{prefix}_region_{k_index}.png")
 
-        if st.session_state.results[image_to_show]["certainty_image"] is not None:
-            certainty = st.session_state.results[image_to_show]["certainty_image"]
+        if st.session_state.results[input_normalization +
+                                    image_to_show]["certainty_image"] is not None:
+            certainty = st.session_state.results[input_normalization +
+                                                 image_to_show]["certainty_image"]
             Image.fromarray(
                 np.uint8(
                     255 *
@@ -274,6 +350,10 @@ if st.session_state.color_schemes == '':
     st.session_state.color_schemes = ["gist_yarg"] * 100
 if 'region_importance' not in st.session_state:
     st.session_state.region_importance = {}
+
+if 'comparison_results' not in st.session_state:
+    st.session_state['comparison_results'] = {}
+
 if 'model' not in st.session_state:
     st.session_state.model = {"PercentileRatio": None,
                               "Dim. Reduction NMF": None,
@@ -299,7 +379,7 @@ if 'images' not in st.session_state:
     st.session_state.images = {}
 
 if 'pr' not in st.session_state:
-    st.session_state.pr = { }
+    st.session_state.pr = {}
 
 regions = []
 
@@ -328,8 +408,8 @@ try:
             if cached_state['Extraction folder'] == '':
                 cached_state['Extraction folder'] = extraction_folders_keys[0]
             if cached_state['Extraction folder'] in extraction_folders_keys:
-                extraction_folders_keys_index =  extraction_folders_keys.index(
-                        cached_state['Extraction folder'])
+                extraction_folders_keys_index = extraction_folders_keys.index(
+                    cached_state['Extraction folder'])
             else:
                 extraction_folders_keys_index = None
             selected_extraction = st.selectbox(
@@ -349,6 +429,12 @@ try:
 
                 regions = st.multiselect(
                     'Regions to include', region_list, default=default)
+
+        with st.sidebar:
+            image_to_show = st.selectbox(
+                'Image to show',
+                list(regions),
+                key=st.session_state.run_id)
 
         st.divider()
         st.title('Model Settings')
@@ -391,21 +477,29 @@ try:
         else:
             umap_model_folder = None
         st.session_state.umap_model_folder = umap_model_folder
-        output_normalization = st.radio(
-            "Select segmentation normalization", [
-                'spatial_norm', 'None'])
-        sub_sample = 1
-        
+
         if combination_method == "PercentileRatio":
             equalize = st.checkbox("Equalize")
 
-        num_samples = st.number_input('Samples for metrics', min_value=300, step=1)
+        st.divider()
+        st.title('Normalization')
+        output_normalization = st.radio(
+            "Select segmentation normalization", [
+                'spatial_norm', 'None'])
+        input_normalization = st.radio(
+            'Select Input Normalization', [
+                'tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=[
+                "Total ION Count", "Total ION Count + Spatial"])
+        st.divider()
+        sub_sample = 1
 
-    with st.sidebar:
-        image_to_show = st.selectbox(
-            'Image to show',
-            list(regions),
-            key=st.session_state.run_id)
+        st.title('Statistics')
+        num_samples = st.number_input(
+            'Samples for metrics', min_value=300, step=1)
+        num_mzs = st.number_input(
+            'Number of top m/z values to show on clicks',
+            min_value=30,
+            step=1)
 
     if image_to_show is not None:
         if model_hash() != st.session_state.model_hash:
@@ -419,7 +513,11 @@ try:
     with st.sidebar:
         st.divider()
         st.title('Region Settings')
-        if combination_method not in ["SpectrumHeatmap", "Dim. Reduction UMAP", "Dim. Reduction NMF", "PercentileRatio"]:
+        if combination_method not in [
+            "SpectrumHeatmap",
+            "Dim. Reduction UMAP",
+            "Dim. Reduction NMF",
+                "PercentileRatio"]:
             region_selectbox = 0
             if image_to_show:
                 region_selectbox = st.selectbox(
@@ -526,29 +624,23 @@ try:
     start = st.button("Run ►")
 
     for path in regions:
-        if path not in st.session_state.images:
+        if input_normalization + path not in st.session_state.images:
             if sub_sample:
                 img = np.load(path)[
                     ::int(sub_sample), ::int(sub_sample), :]
             else:
                 img = np.load(path)
-                img = np.float32(img)[::2, ::2, :]
-            st.session_state.images[path] = img
+
+            normalization = {
+                'tic': total_ion_count,
+                'median': median_ion,
+                'spatial_tic': spatial_total_ion_count}[input_normalization]
+            with st.spinner(text=f"Loading {path}.."):
+                st.session_state.images[input_normalization +
+                                        path] = normalization(img)
+            print('Loaded image')
 
     col1, col2 = st.columns(2)
-    # if image_to_show in st.session_state.pr:
-    #     pr = st.session_state.pr[image_to_show]
-    # else:
-    #     with st.spinner(text="Generating High Saliency Percentile-Ratio Visualization.."):
-    #         mz_image = st.session_state.images[image_to_show]
-    #         t0 = time.time()
-    #         pr = percentile_ratio_rgb(mz_image, 'tic')
-    #         print("PR took", time.time()-t0)
-    #         st.session_state.pr[image_to_show] = pr
-    # with col1:
-    #     st.text('High Saliency Percentile-Ratio visualization')
-    #     st.image(pr)
-
     if start:
         st.session_state.setting_hash = None
         save_to_cache()
@@ -568,17 +660,20 @@ try:
             try:
                 st.session_state.extraction_mzs = extraction_args.mzs
             except Exception as e:
-                st.session_state.extraction_mzs = list(np.arange(st.session_state.extraction_start_mz, st.session_state.extraction_end_mz + 1, 1.0/st.session_state.bins))
-
-                st.session_state.extraction_mzs = [float(f"{mz:.3f}") for mz in st.session_state.extraction_mzs]
-
+                st.session_state.extraction_mzs = list(
+                    np.arange(
+                        st.session_state.extraction_start_mz,
+                        st.session_state.extraction_end_mz + 1,
+                        1.0 / st.session_state.bins))
+                st.session_state.extraction_mzs = [
+                    float(f"{mz:.3f}") for mz in st.session_state.extraction_mzs]
 
             if 'results' in st.session_state:
                 del st.session_state.results
 
             st.session_state.results = {}
             for path in regions:
-                img = st.session_state.images[path]
+                img = st.session_state.images[input_normalization + path]
                 results = {}
                 results["mz_image"] = img
 
@@ -588,14 +683,14 @@ try:
                         img)
                 else:
                     results["segmentation"] = model.factorize(img)
-                
+
                 print("Factorization took", time.time() - t0)
 
-                st.session_state.results[path] = results
+                st.session_state.results[input_normalization + path] = results
 
     if 'results' in st.session_state:
         for path, data in st.session_state.results.items():
-            if path == image_to_show:
+            if path == input_normalization + image_to_show:
                 img = data["mz_image"]
                 segmentation_mask = data["segmentation"].copy()
 
@@ -608,7 +703,8 @@ try:
                     st.session_state.setting_hash = get_settings_hash()
 
                     roi_mask = np.uint8(img.max(axis=-1) > 0)
-                    if 'confidence_thresholds' in st.session_state and st.session_state['confidence_thresholds']:
+                    if 'confidence_thresholds' in st.session_state and st.session_state[
+                            'confidence_thresholds']:
                         low, high = st.session_state['confidence_thresholds']
                         if 'certainty_image' in st.session_state.results[path]:
                             if st.session_state.results[path]['certainty_image'] is not None:
@@ -616,7 +712,10 @@ try:
                                 roi_mask[certainty_image < low] = 0
                                 roi_mask[certainty_image > high] = 0
 
-                    if combination_method in ["Dim. Reduction UMAP", "Dim. Reduction NMF", "PercentileRatio"]:
+                    if combination_method in [
+                        "Dim. Reduction UMAP",
+                        "Dim. Reduction NMF",
+                            "PercentileRatio"]:
                         sub_segmentation_mask, visualization = model.visualize_factorization(
                             img, segmentation_mask, method=output_normalization)
                         segmentation_mask_argmax = None
@@ -639,6 +738,7 @@ try:
                             img, segmentation_mask, region_colorscheme, method=output_normalization, region_factors=st.session_state.region_importance)
 
                         visualization[roi_mask == 0] = 0
+
                         segmentation_mask_argmax = segmentation_mask.argmax(
                             axis=0)
                         segmentation_mask_argmax[roi_mask == 0] = 0
@@ -653,7 +753,8 @@ try:
                         segmentation_mask_argmax = None
 
                     certainty_image = None
-                    if combination_method != "SpectrumHeatmap" and combination_method not in ["Dim. Reduction UMAP", "Dim. Reduction NMF", "PercentileRatio"]:
+                    if combination_method != "SpectrumHeatmap" and combination_method not in [
+                            "Dim. Reduction UMAP", "Dim. Reduction NMF", "PercentileRatio"]:
                         certainty_image = get_certainty(segmentation_mask)
                         certainty_image[img.max(axis=-1) == 0] = 0
                         certainty_image = np.uint8(certainty_image * 255)
@@ -661,18 +762,21 @@ try:
                         certainty_image = np.float32(certainty_image) / 255
 
                     t0 = time.time()
-                    print("generating correlation plots..")
-                    random.seed(10)
-                    fig = get_correlation_plot(img, visualization, num_samples=num_samples)
-                    fig2 = get_correlation_scatter_plot(img, visualization, num_samples=num_samples)
-                    print("took", time.time() - t0)
-                    fig.set_size_inches(5, 2.5)
-                    fig2.set_size_inches(5, 2.5)
+                    with st.spinner(text="Generating visualization evaluation metrics.."):
+                        random.seed(10)
+                        fig = get_correlation_plot(
+                            img, visualization, num_samples=num_samples)
+                        fig2 = get_correlation_scatter_plot(
+                            img, visualization, num_samples=num_samples)
+                        print("Metrics computation took", time.time() - t0)
+                        fig.set_size_inches(5, 2.5)
+                        fig2.set_size_inches(5, 2.5)
 
                     st.session_state.results[path]["certainty_image"] = certainty_image
                     st.session_state.results[path]["segmentation_mask"] = segmentation_mask
                     st.session_state.results[path]["visualization"] = visualization
-                    st.session_state.results[path]["correlation_plot"] = (fig, fig2)
+                    st.session_state.results[path]["correlation_plot"] = (
+                        fig, fig2)
 
                     st.session_state.results[path]["segmentation_mask_for_comparisons"] = segmentation_mask_for_comparisons
                     st.session_state.results[path]["segmentation_mask_argmax"] = segmentation_mask_argmax
@@ -684,8 +788,7 @@ try:
                     path]["segmentation_mask_for_comparisons"]
                 segmentation_mask_argmax = st.session_state.results[path]["segmentation_mask_argmax"]
                 figures = st.session_state.results[path]["correlation_plot"]
-                
-                #with col2:
+
                 st.text('Computed visualization')
                 point = streamlit_image_coordinates(visualization)
 
@@ -696,7 +799,11 @@ try:
                 with st.container():
                     cols = st.columns(num_cols)
 
-                    if combination_method not in ["SpectrumHeatmap", "Dim. Reduction NMF", "Dim. Reduction UMAP", "PercentileRatio"]:
+                    if combination_method not in [
+                        "SpectrumHeatmap",
+                        "Dim. Reduction NMF",
+                        "Dim. Reduction UMAP",
+                            "PercentileRatio"]:
                         region_visualization = st.session_state.results[path]["visualization"].copy(
                         )
                         mask = np.uint8(
@@ -709,13 +816,13 @@ try:
                         cols[0].image(region_visualization)
 
                     if point is not None:
-                        if path in st.session_state.coordinates and point in [
-                                p for p in st.session_state.coordinates[path]]:
+                        if image_to_show in st.session_state.coordinates and point in [
+                                p for p in st.session_state.coordinates[image_to_show]]:
                             pass
                         else:
-                            st.session_state.coordinates[path].append(
+                            st.session_state.coordinates[image_to_show].append(
                                 point)
-                            st.session_state.coordinates[path] = st.session_state.coordinates[path][-2:]
+                            st.session_state.coordinates[image_to_show] = st.session_state.coordinates[image_to_show][-2:]
 
                     if st.session_state.results[path]["certainty_image"] is not None:
                         cols[1].text('Visualization of confidence')
@@ -727,9 +834,11 @@ try:
                         certainty[img.max(axis=-1) == 0] = 0
                         cols[1].image(certainty)
 
-    if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates:
+    if image_to_show and st.session_state.coordinates and image_to_show in st.session_state.coordinates and input_normalization + \
+            image_to_show in st.session_state.results:
         images = []
-        visualization = st.session_state.results[image_to_show]["visualization"]
+        visualization = st.session_state.results[input_normalization +
+                                                 image_to_show]["visualization"]
         for point in st.session_state.coordinates[image_to_show]:
             x, y = int(point['x']), int(point['y'])
             heatmap = visualizations.get_mask(
@@ -741,8 +850,10 @@ try:
                 col.image(images[index])
             if len(st.session_state.coordinates[image_to_show]) > 1:
                 with st.spinner(text="Comparing regions.."):
-                    mz_image = st.session_state.results[image_to_show]["mz_image"]
-                    visualization = st.session_state.results[image_to_show]["visualization"]
+                    mz_image = st.session_state.results[input_normalization +
+                                                        image_to_show]["mz_image"]
+                    visualization = st.session_state.results[input_normalization +
+                                                             image_to_show]["visualization"]
 
                     if 'difference_visualizations' not in st.session_state or st.session_state.difference_visualizations is None:
                         st.session_state['difference_visualizations'] = {}
@@ -769,28 +880,35 @@ try:
                     point_a = int(point_a['x']), int(point_a['y'])
                     point_b = st.session_state.coordinates[image_to_show][1]
                     point_b = int(point_b['x']), int(point_b['y'])
-                    image, label_a, label_b, (color_a, color_b, aucs) = diff.visualize_comparison_between_points(
-                        point_a, point_b)
 
-                    pos_aucs = {mz: -aucs[mz] for mz in aucs if aucs[mz] < 0.5}
-                    neg_aucs = {mz: aucs[mz] for mz in aucs if aucs[mz] > 0.5}
-                    for aucs, color in zip([pos_aucs, neg_aucs], [color_a, color_b]):
-                        header_cols = st.columns(2)
-                        header_cols[0].text('m/z values for ')
-                        header_cols[1].image(np.uint8(color * np.ones((64, 64, 3))))
-                        sorted_indices = sorted(list(aucs.keys()), key = lambda mz: aucs[mz], reverse=True)                        
-                        N = 9
-                        col_array = st.columns(N)
-                        num_rows = math.ceil(len(sorted_indices) / N)
-                        for row in range(num_rows):
-                            indices = sorted_indices[N * row : N * row + N]
-                            indices = indices + [None] * (N -len(indices))
-                            for i, (mz, col) in enumerate(zip(indices, st.columns(len(indices)))):
-                                if mz is None:
-                                    col.button("", key=f"default+{i}", disabled=True, use_container_width=True)
-                                elif col.button(f"{mz}", use_container_width=True):
-                                    create_ion_image(mz, image_to_show)
-                    st.image(image)
+                    diff_result_key = str(
+                        point_a) + str(point_b) + image_to_show + input_normalization
+                    if diff_result_key in st.session_state.comparison_results:
+                        image, label_a, label_b, (
+                            color_a, color_b, aucs), point_aucs = st.session_state.comparison_results[diff_result_key]
+                    else:
+                        image, label_a, label_b, (color_a, color_b, aucs) = diff.visualize_comparison_between_regions(
+                            point_a, point_b)
+
+                        point_aucs = diff.compare_two_points(point_a, point_b)
+
+                        st.session_state.comparison_results[diff_result_key] = image, label_a, label_b, (
+                            color_a, color_b, aucs), point_aucs
+
+                    display_mzs(
+                        aucs,
+                        color_a,
+                        color_b,
+                        threshold=0.5,
+                        title='Comparing Regions')
+                    st.image(st.session_state.ion_image[1])
+                    display_mzs(
+                        point_aucs,
+                        color_a,
+                        color_b,
+                        threshold=0.5,
+                        title='Comparing Clicked points')
+                    st.image(st.session_state.ion_image[1])
 
                     st.session_state.latest_diff = (
                         image, visualization, label_a, label_b)

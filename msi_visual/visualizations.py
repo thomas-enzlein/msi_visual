@@ -13,7 +13,6 @@ import cmapy
 from PIL import Image
 from functools import lru_cache
 from sklearn.ensemble import RandomForestClassifier
-
 from msi_visual.utils import set_region_importance
 
 def show_factorization_on_image(img: np.ndarray,
@@ -269,7 +268,7 @@ def get_mask(visualization, segmentation_mask, x, y):
     
 class ObjectsComparison:
     def __init__(self, mz_image, segmentation_mask, visualization, start_mz=300, bins_per_mz=5):
-        self.mz_image = mz_image
+        self.mz_image = norm_funtion(mz_image)
         self.segmentation_mask = segmentation_mask
         self.visualization = visualization
         self.start_mz = start_mz
@@ -292,19 +291,10 @@ class RegionComparison:
         self.mzs = mzs
         self.bins_per_mz = bins_per_mz
 
-    def model_based_comparison(self, values_a, values_b):
-        t0 = time.time()
-        clf = RandomForestClassifier(max_depth=2, random_state=0)
-        both = np.concatenate((values_a, values_b), axis=0)
-        labels  = [0] * len(values_a) + [1] * len(values_b)
-        clf.fit(both, labels)
-        print(f"rf fit took {time.time()-t0}")
-
 
     def ranking_comparison(self, mask_a, mask_b, peak_minimum=0):
         values_a = self.mz_image[mask_a > 0]
         values_b = self.mz_image[mask_b > 0]
-        #self.model_based_comparison(values_a, values_b)
         t0 = time.time()
 
         peaks_a30, _ = find_peaks(np.percentile(values_a, 30, axis=0), height=(peak_minimum, None))
@@ -324,20 +314,6 @@ class RegionComparison:
         
         result = {peaks[index]: u for index, u in result.items() if p[index] < 0.05}
         return result
-
-        # both = np.concatenate((values_a, values_b), axis=0)
-        # peaks_a = np.percentile(values_a, 30, axis=0)
-        # peaks_a, _ = find_peaks(peaks_a, height=(peak_minimum, None))
-        # peaks_b = np.percentile(values_b, 30, axis=0)
-        # peaks_b, _ = find_peaks(peaks_b, height=(peak_minimum, None))
-
-        # labels  = [0] * len(values_a) + [1] * len(values_b)
-        # peaks = list(peaks_a) + list(peaks_b)
-        # aucs = defaultdict(float)
-        # for mz in tqdm.tqdm(peaks):
-        #     auc = roc_auc_score(labels, both[:, mz])
-        #     aucs[mz] += auc
-        # return aucs
 
     def compare_one_point(self, point, size=3):
         x, y = point
@@ -360,7 +336,28 @@ class RegionComparison:
         image = self._create_auc_visualization(aucs, color_a, color_b)
         return image
 
-    def compare_two_points(self, point_a, point_b):
+    def compare_two_points(self, point_a, point_b, top_mzs=200):
+        x1, y1 = point_a
+        x2, y2 = point_b
+    
+        values_a = self.mz_image[y1, x1, :]
+        values_b = self.mz_image[y2, x2, :]
+
+        indices_a = list(np.argsort(values_a)[-top_mzs : ])
+        indices_b = list(np.argsort(values_b)[-top_mzs : ])
+        indices = sorted(indices_a + indices_b)
+
+        x = self.mz_image[:, :, indices]
+        x = x.reshape((x.shape[0] * x.shape[1], -1))
+        ranks = x.argsort(axis=0).argsort(axis=0).reshape((self.mz_image.shape[0],
+                                                           self.mz_image.shape[1], -1))
+
+        scores = (-ranks[y1, x1] + ranks[y2, x2]) / (ranks.shape[0] * ranks.shape[0])
+        scores = (scores + 1) / 2
+        indices = [self.mzs[mz_index] for mz_index in indices]
+        return dict(zip(indices, scores))
+
+    def compare_two_regions(self, point_a, point_b):
         x1, y1 = point_a
         x2, y2 = point_b
         label_a = self.segmentation_mask[y1, x1]
@@ -374,8 +371,8 @@ class RegionComparison:
         aucs = self.ranking_comparison(mask_a, mask_b)
         return aucs, mask_a, mask_b
 
-    def visualize_comparison_between_points(self, point_a, point_b):
-        (aucs, mask_a, mask_b), label_a, label_b = self.compare_two_points(point_a, point_b)
+    def visualize_comparison_between_regions(self, point_a, point_b):
+        (aucs, mask_a, mask_b), label_a, label_b = self.compare_two_regions(point_a, point_b)
         color_a = self.visualization[mask_a > 0]
         color_a = color_a.mean(axis=0)
         color_b = self.visualization[mask_b > 0].mean(axis=0)
