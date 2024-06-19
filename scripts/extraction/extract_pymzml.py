@@ -73,9 +73,12 @@ def get_image(
     all_intensities = []
     for idx, (x,y,z) in tqdm.tqdm(enumerate(p.coordinates), total=len(p.coordinates)):
         mzs, intensities = p.getspectrum(idx)
-        indices = [i for i in range(len(mzs)) if mzs[i] >= min_mz and mzs[i] <= max_mz]
-        mzs = [mzs[i] for i in indices]
-        intensities = [intensities[i] for i in indices]
+        #indices = [i for i in range(len(mzs)) if mzs[i] >= min_mz and mzs[i] <= max_mz]
+        if idx == 0:
+            print(type(mzs), type(intensities))
+            print(intensities.dtype)
+        #mzs = mzs[indices]
+        #intensities = intensities[indices]
 
         xs.append(x)
         ys.append(y)
@@ -83,12 +86,11 @@ def get_image(
         all_intensities.append(intensities)
 
     if nonzero:
-        set_of_mzs = []
+        set_of_mzs = set()
         for mz_list in all_mzs:
-            set_of_mzs.extend(mz_list)
-        set_of_mzs = np.float32(sorted(list(set(set_of_mzs))))
+            set_of_mzs.update(mz_list)
+        set_of_mzs = np.float32(sorted(list(set_of_mzs)))
         set_of_mzs_quantized = sorted(list(set(list(np.int32(np.round(set_of_mzs * bins_per_mz))))))
-
         mz_to_index = {mz: i for i, mz in enumerate(set_of_mzs_quantized)}
 
     xs, ys = np.int32(xs), np.int32(ys)
@@ -98,6 +100,8 @@ def get_image(
     height = np.max(ys) + 1
     num_mzs = max_mz - min_mz + 1
     
+    print(f"Allocating image.. {height} {width} {len(set_of_mzs_quantized)}")
+
     if nonzero:
         img = np.zeros((height, width, len(set_of_mzs_quantized)), dtype=np.float32)
     else:
