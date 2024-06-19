@@ -220,12 +220,14 @@ def get_model():
     return model
 
 
-def create_ion_image(mz, image_to_show):
+def create_ion_image(mz_orig, image_to_show):
     mz_image = st.session_state.results[input_normalization +
                                         image_to_show]["mz_image"]
-    print("create_ion_image", mz)
-    mz_index = st.session_state.extraction_mzs.index(mz)
-    print("create_ion_image", mz_index)
+    mz_index = np.abs(np.float32(st.session_state.extraction_mzs) - \
+                      float(mz_orig)).argmin()
+    mz = st.session_state.extraction_mzs[mz_index]
+    if mz_orig != mz:
+        st.text(f'Showing ION image for closest mz {mz}')
     mz_img = visualizations.create_ion_image(mz_image, mz_index) * 1
 
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -922,6 +924,7 @@ try:
         mz = st.text_input('Create ION image for m/z:')
         if mz:
             create_ion_image(mz, image_to_show)
+            st.image(st.session_state.ion_image[1])
 
     save_data()
 
