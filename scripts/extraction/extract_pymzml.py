@@ -74,8 +74,11 @@ def get_image(
     for idx, (x,y,z) in tqdm.tqdm(enumerate(p.coordinates), total=len(p.coordinates)):
         mzs, intensities = p.getspectrum(idx)
         indices = [i for i in range(len(mzs)) if mzs[i] >= min_mz and mzs[i] <= max_mz]
-        mzs = [mzs[i] for i in indices]
-        intensities = [intensities[i] for i in indices]
+        if idx == 0:
+            print(type(mzs), type(intensities))
+            print(intensities.dtype)
+        mzs = mzs[indices]
+        intensities = intensities[indices]
 
         xs.append(x)
         ys.append(y)
