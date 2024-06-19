@@ -261,6 +261,7 @@ def auto_colorization():
                 low_var_ratio,
                 k)
         if st.button('Area based colorization'):
+            k = st.session_state['segmentation_model'].k
             colorization = AutoColorizeArea(
                 json.load(open("auto_color_schemes.json")))
             st.session_state.color_schemes = colorization.colorize(
