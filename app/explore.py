@@ -11,10 +11,12 @@ from argparse import Namespace
 from PIL import Image
 from st_pages import show_pages_from_config, add_page_title
 import importlib
+from msi_visual.normalization import total_ion_count
 import msi_visual.percentile_ratio
 importlib.reload(msi_visual.percentile_ratio)
-from msi_visual.percentile_ratio import percentile_ratio_rgb
+from msi_visual.percentile_ratio import percentile_ratio_rgb, top3
 from msi_visual import nmf_3d
+from msi_visual.metrics import MSIVisualizationMetrics
 from msi_visual import parametric_umap
 from msi_visual.app_utils.extraction_info import display_paths_to_extraction_paths, \
     get_files_from_folder
@@ -39,6 +41,9 @@ show_pages_from_config()
 
 if 'pr' not in st.session_state:
     st.session_state.pr = {}
+    st.session_state.max_intensity = {}
+    st.session_state.pr_metrics = {}
+    st.session_state.max_intensity_metrics = {}
 
 regions = []
 with st.sidebar:
@@ -73,13 +78,31 @@ if st.button("Run"):
     for path in regions:
         if path+settings_str in st.session_state.pr:
             pr = st.session_state.pr[path+settings_str]
+            max_intensity = st.session_state.max_intensity[path+settings_str]
+
+            pr_metrics = st.session_state.pr_metrics[path + settings_str]
+            max_intensity_metrics = st.session_state.max_intensity_metrics[path + settings_str]
         else:
-            with st.spinner(text=f"Generating High Saliency Percentile-Ratio Visualization for {path}.."):
+            with st.spinner(text=f"Generating High Saliency Visualizations for {path}.."):
                 img = np.load(path)
-                pr = percentile_ratio_rgb(img, percentiles=percentiles, equalize=equalize)
+                img = total_ion_count(img)
+                pr = percentile_ratio_rgb(img, percentiles=percentiles, equalize=equalize, normalization=None)
+                max_intensity = top3(img, normalization=None)
+                
+                pr_metrics = MSIVisualizationMetrics(img, pr, num_samples=3000).get_metrics()
+                max_intensity_metrics = MSIVisualizationMetrics(img, max_intensity, num_samples=3000).get_metrics()
+                
+                st.session_state.pr_metrics[path + settings_str] = pr_metrics
+                st.session_state.max_intensity_metrics[path + settings_str] = max_intensity_metrics
+
+
                 st.session_state.pr[path + settings_str] = pr
+                st.session_state.max_intensity[path + settings_str] = max_intensity
         
         st.text(path)
         st.image(pr)
+        st.write(pr_metrics)
+        st.image(max_intensity)
+        st.write(max_intensity_metrics)
 
         save_data(path=path+settings_str)
