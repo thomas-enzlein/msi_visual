@@ -3,12 +3,42 @@ import cv2
 
 from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 
+def top3(img,
+         normalization='tic'):
+    if normalization is not None:
+        norm_funtion = {'tic': total_ion_count, 'median': median_ion, 'spatial_tic': spatial_total_ion_count}[normalization]
+        normalized = norm_funtion(img)        
+    else:
+        normalized = img
+    sorted = np.sort(normalized, axis=-1)
+
+    p0 = sorted[:, :, -1]
+    p1 = sorted[:, :, -2]
+    p2 = sorted[:, :, -3]
+    a = p0
+    a = a / np.percentile(a, 99.9)
+    a[a > 1] = 1
+    b = p1
+    b = b / np.percentile(b, 99.9)
+    b[b > 1] = 1
+    c = p2
+    c = c / np.percentile(c, 99.9)
+    c[c > 1] = 1
+
+    visualization = cv2.merge([(np.uint8(255*a)), (np.uint8(255*b)), (np.uint8(255*c))])
+    visualization = cv2.cvtColor(visualization, cv2.COLOR_LAB2RGB)
+    visualization[img.max(axis=-1) == 0] = 0
+    return visualization    
+
 def percentile_ratio_rgb(img,
                          normalization='tic',
                          percentiles = [99.99, 99.9, 99.9, 99, 98, 85],
                          equalize=False):
-    norm_funtion = {'tic': total_ion_count, 'median': median_ion, 'spatial_tic': spatial_total_ion_count}[normalization]
-    sorted_normalized = norm_funtion(img)
+    if normalization is not None:
+        norm_funtion = {'tic': total_ion_count, 'median': median_ion, 'spatial_tic': spatial_total_ion_count}[normalization]
+        sorted_normalized = norm_funtion(img)
+    else:
+        sorted_normalized = img
     sorted_normalized.sort(axis=-1)
     N = sorted_normalized.shape[-1]
 
@@ -47,13 +77,6 @@ def percentile_ratio_rgb(img,
 
 
     visualization = cv2.cvtColor(visualization, cv2.COLOR_LAB2LRGB)
-
-    # if equalize:
-    #     visualization = cv2.merge([cv2.equalizeHist(visualization[:, :, 0]),
-    #                                cv2.equalizeHist(visualization[:, :, 1]),
-    #                                cv2.equalizeHist(visualization[:, :, 2])])
-
-
 
     visualization[img.max(axis=-1) == 0] = 0
     return visualization

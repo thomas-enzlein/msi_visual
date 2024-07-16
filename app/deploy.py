@@ -3,7 +3,7 @@ import hashlib
 from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 from msi_visual.percentile_ratio import percentile_ratio_rgb
 from msi_visual.percentile_ratio_segmentation import PercentileRatioSegmentation
-from msi_visual.metrics import get_correlation_plot, get_correlation_scatter_plot
+from msi_visual.metrics import MSIVisualizationMetrics
 from msi_visual.auto_colorization import AutoColorizeRandom, AutoColorizeArea
 from msi_visual.avgmz import AvgMZVisualization
 from msi_visual.rare_nmf_segmentation import SegmentationRareVisualization
@@ -770,10 +770,9 @@ try:
                     t0 = time.time()
                     with st.spinner(text="Generating visualization evaluation metrics.."):
                         random.seed(10)
-                        fig = get_correlation_plot(
-                            img, visualization, num_samples=num_samples)
-                        fig2 = get_correlation_scatter_plot(
-                            img, visualization, num_samples=num_samples)
+                        metrics = MSIVisualizationMetrics(img, visualization, num_samples=num_samples)
+                        fig = metrics.get_correlation_plot()
+                        fig2 = metrics.get_correlation_scatter_plot()
                         print("Metrics computation took", time.time() - t0)
                         fig.set_size_inches(5, 2.5)
                         fig2.set_size_inches(5, 2.5)
