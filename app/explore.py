@@ -32,6 +32,10 @@ def save_data(path=None):
         image_name = path.replace("/", "_").replace("\\", "_").replace(".", "_").replace(":", "_")
         Image.fromarray(st.session_state.pr[path]).save(Path(folder) /
                                 f"{image_name}_pr.png")
+        
+        image_name = path.replace("/", "_").replace("\\", "_").replace(".", "_").replace(":", "_")
+        Image.fromarray(st.session_state.max_intensity[path]).save(Path(folder) /
+                                f"{image_name}_top3.png")
 
 # Either this or add_indentation() MUST be called on each page in your
 # app to add indendation in the sidebar
