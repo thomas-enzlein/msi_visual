@@ -60,7 +60,7 @@ with st.sidebar:
 
 epochs = st.number_input("Number of epochs", min_value=1, value=200, step=1)
 number_of_reference_points = st.number_input("Number of reference points", min_value=50, value=500, step=1)
-regularization = st.number_input("Regularizaiton strength", min_value=0.0, value=0.005, step=0.0001)
+regularization = float(st.text_input("Regularizaiton strength", value="0.0"))
 settings_str = str(epochs) + str(number_of_reference_points)
 
 if st.button("Run"):
