@@ -33,7 +33,7 @@ class SaliencyOptimization:
         if torch.cuda.is_available():
             input_cosine = input_cosine.cuda()
 
-        self.visualization = torch.rand(size=(reshaped.shape[0], 3)) * 10
+        self.visualization = torch.rand(size=(reshaped.shape[0], 3)) * 5 -5
 
         if torch.cuda.is_available():
             self.visualization = self.visualization.cuda()
@@ -63,9 +63,9 @@ class SaliencyOptimization:
         x = x.reshape((self.img.shape[0], self.img.shape[1], 3))
             
         for i in range(3):
-            x[:, :, i] = x[:, :, i] - np.percentile(x[:, :, i], 0.01)
+            x[:, :, i] = x[:, :, i] - np.percentile(x[:, :, i], 0.001)
             x[:, :, i][x[:, :, i] < 0] = 0 
-            x[:, :, i] = x[:, :, i] / np.percentile(x[:, :, i], 99.99)
+            x[:, :, i] = x[:, :, i] / np.percentile(x[:, :, i], 99.999)
             x[:, :, i][x[:, :, i] > 1] = 1
         
         x[self.img_mask == 0] = 0
