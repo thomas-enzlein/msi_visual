@@ -7,9 +7,10 @@ import torchsort
 import cv2
 
 class SaliencyOptimization:
-    def __init__(self, img, number_of_points=500):
+    def __init__(self, img, number_of_points=500, regularization_strength=0.005):
         self.img = img
         self.number_of_points = number_of_points
+        self.regularization_strength = regularization_strength
     
         reshaped = self.img.reshape(self.img.shape[0] * self.img.shape[1], -1)
 
@@ -49,7 +50,7 @@ class SaliencyOptimization:
     def compute_epoch(self):
         x = self.visualization
         d = torch.cdist(x, x[self.indices])
-        output = torchsort.soft_rank(d, regularization_strength=0.01)
+        output = torchsort.soft_rank(d, regularization_strength=self.regularization_strength)
         
         saliency = self.loss_saliency(output, self.input_max_rank, torch.ones_like(output))
         saliency = (saliency * self.mask[:, None] * self.rank_squares).sum() / (self.mask[:, None] * self.rank_squares).sum()
@@ -63,9 +64,9 @@ class SaliencyOptimization:
         x = x.reshape((self.img.shape[0], self.img.shape[1], 3))
             
         for i in range(3):
-            x[:, :, i] = x[:, :, i] - np.percentile(x[:, :, i], 0.001)
+            x[:, :, i] = x[:, :, i] - np.percentile(x[:, :, i], 0.01)
             x[:, :, i][x[:, :, i] < 0] = 0 
-            x[:, :, i] = x[:, :, i] / np.percentile(x[:, :, i], 99.999)
+            x[:, :, i] = x[:, :, i] / np.percentile(x[:, :, i], 99.99)
             x[:, :, i][x[:, :, i] > 1] = 1
         
         x[self.img_mask == 0] = 0
