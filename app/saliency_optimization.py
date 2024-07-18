@@ -42,6 +42,7 @@ show_pages_from_config()
 
 if 'saliency_opt' not in st.session_state:
     st.session_state.saliency_opt = {}
+    st.session_state.metrics = {}
 
 
 regions = []
@@ -60,15 +61,17 @@ with st.sidebar:
 
 epochs = st.number_input("Number of epochs", min_value=1, value=200, step=1)
 number_of_reference_points = st.number_input("Number of reference points", min_value=50, value=500, step=1)
-regularization = float(st.text_input("Regularizaiton strength", value="0.0"))
-settings_str = str(epochs) + str(number_of_reference_points)
+regularization = float(st.text_input("Regularizaiton strength", value="0.01"))
+settings_str = str(epochs) + str(number_of_reference_points) + str(regularization)
 
 if st.button("Run"):
     for path in regions:
         key = path+settings_str
         if key in st.session_state.saliency_opt:
             result = st.session_state.saliency_opt[key]
+            metrics = st.session_state.metrics
             st.image(result)
+            st.write(metrics)
         else:
             with st.spinner(text=f"Generating saliency optimization {path}.."):
                 st.write(path)
@@ -83,7 +86,9 @@ if st.button("Run"):
                         result = opt.compute_epoch()
                         #placeholder.empty()
                         placeholder.image(result)
+                metrics = MSIVisualizationMetrics(img, result, num_samples=3000).get_metrics()
 
+                st.session_state.metrics[key] = metrics
                 st.session_state.saliency_opt[key] = result
 
         save_data(path=path+settings_str)
