@@ -12,7 +12,7 @@ from argparse import Namespace
 from PIL import Image
 from st_pages import show_pages_from_config, add_page_title
 import importlib
-from msi_visual.normalization import total_ion_count
+from msi_visual.normalization import total_ion_count, spatial_total_ion_count
 import msi_visual.percentile_ratio
 import msi_visual.saliency_opt
 importlib.reload(msi_visual.percentile_ratio)
@@ -62,7 +62,12 @@ with st.sidebar:
 epochs = st.number_input("Number of epochs", min_value=1, value=200, step=1)
 number_of_reference_points = st.number_input("Number of reference points", min_value=50, value=500, step=1)
 regularization = float(st.text_input("Regularizaiton strength", value="0.01"))
-settings_str = str(epochs) + str(number_of_reference_points) + str(regularization)
+input_normalization = st.radio(
+    'Select Input Normalization', [
+        'tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=[
+        "Total ION Count", "Total ION Count + Spatial"])
+
+settings_str = str(epochs) + str(number_of_reference_points) + str(regularization) + str(input_normalization)
 
 if st.button("Run"):
     for path in regions:
@@ -76,7 +81,11 @@ if st.button("Run"):
             with st.spinner(text=f"Generating saliency optimization {path}.."):
                 st.write(path)
                 img = np.float32(np.load(path))
-                img = total_ion_count(img)
+
+                if input_normalization == 'tic':
+                    img = total_ion_count(img)
+                else:
+                    img = spatial_total_ion_count(img)
 
                 with st.spinner(text=f"Initializing ranking dataset.."):
                     opt = SaliencyOptimization(img, number_of_reference_points, regularization)

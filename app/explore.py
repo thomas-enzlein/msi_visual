@@ -12,7 +12,7 @@ from argparse import Namespace
 from PIL import Image
 from st_pages import show_pages_from_config, add_page_title
 import importlib
-from msi_visual.normalization import total_ion_count
+from msi_visual.normalization import total_ion_count, spatial_total_ion_count
 import msi_visual.percentile_ratio
 importlib.reload(msi_visual.percentile_ratio)
 from msi_visual.percentile_ratio import percentile_ratio_rgb, top3
@@ -85,7 +85,13 @@ percentiles = [p0, p1, p2, p3, p4, p5]
 
 equalize = st.checkbox("Equalize histogram internally")
 
-settings_str = "".join([f"{p:.3f}" for p in percentiles]) + str(equalize)
+input_normalization = st.radio(
+    'Select Input Normalization', [
+        'tic', 'spatial_tic'], index=0, key="norm", horizontal=1, captions=[
+        "Total ION Count", "Total ION Count + Spatial"])
+
+
+settings_str = "".join([f"{p:.3f}" for p in percentiles]) + str(equalize) + str(input_normalization)
 
 if st.button("Run"):
     for path in regions:
@@ -108,19 +114,21 @@ if st.button("Run"):
                 st.text(path)
                 t0 = time.time()
                 img = np.load(path)
-                img = total_ion_count(img)
+                
+                if input_normalization == 'tic':
+                    img = total_ion_count(img)
+                else:
+                    img = spatial_total_ion_count(img)
+
                 t1 = time.time()
-                print(f"Loading took {t1-t0}")
                 pr = percentile_ratio_rgb(img, percentiles=percentiles, equalize=equalize, normalization=None)
                 t2 = time.time()
-                print(f"PR tool {t2-t1}")
                 st.image(pr)
-                max_intensity = top3(img, normalization=None)
+                max_intensity = top3(img, normalization=None, equalize=equalize)
                 st.image(max_intensity)
                 pr_metrics = MSIVisualizationMetrics(img, pr, num_samples=3000).get_metrics()
                 max_intensity_metrics = MSIVisualizationMetrics(img, max_intensity, num_samples=3000).get_metrics()
                 t3 = time.time()
-                print(f"Metrics took {t3-t2}")
                 st.write("Percentile ratio metrics")
                 st.write(pr_metrics)
                 st.write("TOP-3 metrics")
@@ -129,7 +137,6 @@ if st.button("Run"):
                 outlier = get_outlier_image(img)
                 st.image(outlier)
                 t4 = time.time()
-                print(f"Outliers took {t4-t3}")
 
                 st.session_state.pr_metrics[key] = pr_metrics
                 st.session_state.max_intensity_metrics[key] = max_intensity_metrics

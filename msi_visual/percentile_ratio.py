@@ -4,7 +4,7 @@ import cv2
 from msi_visual.normalization import spatial_total_ion_count, total_ion_count, median_ion
 
 def top3(img,
-         normalization='tic'):
+         normalization='tic', equalize=False):
     if normalization is not None:
         norm_funtion = {'tic': total_ion_count, 'median': median_ion, 'spatial_tic': spatial_total_ion_count}[normalization]
         normalized = norm_funtion(img)        
@@ -25,7 +25,10 @@ def top3(img,
     c = c / np.percentile(c, 99.9)
     c[c > 1] = 1
 
-    visualization = cv2.merge([(np.uint8(255*a)), (np.uint8(255*b)), (np.uint8(255*c))])
+    if equalize:
+        visualization = cv2.merge([cv2.equalizeHist(np.uint8(255*a)), cv2.equalizeHist(np.uint8(255*b)), cv2.equalizeHist(np.uint8(255*c))])
+    else:
+        visualization = cv2.merge([(np.uint8(255*a)), (np.uint8(255*b)), (np.uint8(255*c))])
     visualization = cv2.cvtColor(visualization, cv2.COLOR_LAB2RGB)
     visualization[img.max(axis=-1) == 0] = 0
     return visualization    
