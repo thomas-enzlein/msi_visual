@@ -49,12 +49,13 @@ def core_sets(data, Np):
 
 class SaliencyOptimization:
     def __init__(self, number_of_points=500, regularization_strength=0.005,
-                 sampling="coreset", num_epochs=200, init="random"):
+                 sampling="coreset", num_epochs=200, init="random", similarity_reg=0):
         self.num_epochs = num_epochs
         self.regularization_strength = regularization_strength
         self.sampling = sampling
         self.number_of_points = number_of_points
         self.init = init
+        self.similarity_reg = similarity_reg
 
     def set_image(self, img):
         self.img = img
@@ -63,13 +64,14 @@ class SaliencyOptimization:
         self.img_mask = self.img.max(axis=-1) > 0
         self.resample(number_of_points=self.number_of_points)
 
-        if self.init=="random":
+        if isinstance(self.init, np.ndarray):
+            self.visualization = torch.from_numpy(np.float32(self.init)/255) * 10 - 5
+            self.visualization = self.visualization.reshape(-1, 3)
+
+        elif self.init=="random":
             self.visualization = torch.rand(
                 size=(self.reshaped.shape[0], 3)) * 10 - 5
             
-            # self.visualization = torch.randn(
-            #     size=(self.reshaped.shape[0], 3))
-
         elif self.init == "top3":
             self.visualization = torch.from_numpy(np.float32(top3(img))/255)
             self.visualization = self.visualization.reshape(-1, 3)
@@ -79,6 +81,10 @@ class SaliencyOptimization:
 
         if torch.cuda.is_available():
             self.visualization = self.visualization.cuda()
+
+        if self.similarity_reg > 0:
+            self.orig = self.visualization.clone()
+
         self.visualization.requires_grad = True
         self.optim = torch.optim.Adam([self.visualization], lr=1.0)
         delta = 0.0 * len(self.indices)
@@ -134,6 +140,12 @@ class SaliencyOptimization:
         saliency = (saliency * self.mask[:,
                                          None] * self.rank_squares).sum() / (self.mask[:,
                                                                                        None] * self.rank_squares).sum()
+        
+        if self.similarity_reg > 0:
+            saliency = saliency + self.similarity_reg * torch.nn.MSELoss()(self.visualization, self.orig)
+            #saliency = torch.nn.MSELoss()(self.visualization, self.orig)
+        
+
         self.optim.zero_grad()
         loss = saliency
         loss.backward()
@@ -148,6 +160,8 @@ class SaliencyOptimization:
             x[:, :, i][x[:, :, i] < 0] = 0
             x[:, :, i] = x[:, :, i] / np.percentile(x[:, :, i], 99.999)
             x[:, :, i][x[:, :, i] > 1] = 1
+
+
 
         x = np.uint8(255 * x)
 
