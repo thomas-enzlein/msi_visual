@@ -7,44 +7,7 @@ import torchsort
 import cv2
 
 from msi_visual.percentile_ratio import top3
-
-
-def core_sets(data, Np):
-    """Reduces (NxD) data matrix from N to Np data points.
-
-    Args:
-        data: ndarray of shape [N, D]
-        Np: number of data points in the coreset
-    Returns:
-        coreset: ndarray of shape [Np, D]
-        weights: 1darray of shape [Np, 1]
-    """
-    N = data.shape[0]
-    D = data.shape[1]
-
-    # compute mean
-    u = np.mean(data, axis=0)
-
-    # compute proposal distribution
-    q = np.linalg.norm(data - u, axis=1)**2
-    sum = np.sum(q)
-
-    q2 = np.max(np.abs(data - u), axis=1)
-    sum2 = np.sum(q2)
-
-    d = q / sum + q2 / sum2
-    d = d / np.sum(d)
-
-    d = q / sum
-
-    q = 0.5 * (d + 1.0 / N)
-
-    # get sample and fill coreset
-    samples = np.random.choice(N, Np, p=q)
-    coreset = data[samples]
-    weights = 1.0 / (q[samples] * Np)
-
-    return coreset, weights, samples
+from sklearn.cluster import KMeans, kmeans_plusplus
 
 
 class SaliencyOptimization:
@@ -56,6 +19,41 @@ class SaliencyOptimization:
         self.number_of_points = number_of_points
         self.init = init
         self.similarity_reg = similarity_reg
+
+def get_reference_points(self, data, Np):
+    """Reduces (NxD) data matrix from N to Np data points.
+
+    Args:
+        data: ndarray of shape [N, D]
+        Np: number of data points in the coreset
+    Returns:
+        coreset: ndarray of shape [Np, D]
+        weights: 1darray of shape [Np, 1]
+    """
+    N = data.shape[0]
+    D = data.shape[1]
+    method = self.sampling
+    if method == "random":
+        return np.random.choice(list(range(N), number_of_points))
+
+    elif method == "kmeans++"
+        _, indices = kmeans_plusplus(data, n_clusters=Np, random_state=0)
+        return indices
+
+    elif method == "kmeans":
+        kmeans = KMeans(n_clusters=Np, random_state=0, n_init="auto").fit(data)
+        return pairwise_distances(data, kmeans.cluster_centers_).argmin(axis=0)
+
+    elif method == "coreset":
+        # compute mean
+        u = np.mean(data, axis=0)
+        # compute proposal distribution
+        q = np.linalg.norm(data - u, axis=1)**2
+        sum = np.sum(q)
+        d = q / sum
+        q = 0.5 * (d + 1.0 / N)
+        # get sample and fill coreset
+        return np.random.choice(N, Np, p=q)
 
     def set_image(self, img):
         self.img = img
@@ -95,20 +93,14 @@ class SaliencyOptimization:
         self.mask = torch.from_numpy(self.mask_np).float().cuda()
 
     def resample(self, number_of_points):
-        if self.sampling == "coreset":
-            _, _, sampled_indices = core_sets(self.reshaped, number_of_points)
-        elif self.sampling == "random":
-            sampled_indices = np.random.choice(
-                list(range(len(self.reshaped))), number_of_points)
-        else:
-            raise f"Sampling {self.sampling} not implemented, chose coreset/random"
-
+        sampled_indices = self.get_reference_points(self.reshaped, number_of_points)
         self.indices = [
             i for i in sampled_indices if self.reshaped[i, :].max(axis=-1) > 0]
-        coreset = self.reshaped[self.indices, :]
-        cosine = pairwise_distances(self.reshaped, coreset, metric='cosine')
+            
+        reference_points = self.reshaped[self.indices, :]
+        cosine = pairwise_distances(self.reshaped, reference_points, metric='cosine')
         chebyshev = pairwise_distances(
-            self.reshaped, coreset, metric='chebyshev')
+            self.reshaped, reference_points, metric='chebyshev')
 
         cosine = cosine.argsort().argsort()
         chebyshev = chebyshev.argsort().argsort()
@@ -143,7 +135,6 @@ class SaliencyOptimization:
         
         if self.similarity_reg > 0:
             saliency = saliency + self.similarity_reg * torch.nn.MSELoss()(self.visualization, self.orig)
-            #saliency = torch.nn.MSELoss()(self.visualization, self.orig)
         
 
         self.optim.zero_grad()
@@ -155,13 +146,12 @@ class SaliencyOptimization:
         x[self.mask_np == 0] = 0
         x = x.reshape((self.img.shape[0], self.img.shape[1], 3))
 
+
         for i in range(3):
             x[:, :, i] = x[:, :, i] - np.percentile(x[:, :, i], 0.001)
             x[:, :, i][x[:, :, i] < 0] = 0
             x[:, :, i] = x[:, :, i] / np.percentile(x[:, :, i], 99.999)
             x[:, :, i][x[:, :, i] > 1] = 1
-
-
 
         x = np.uint8(255 * x)
 
