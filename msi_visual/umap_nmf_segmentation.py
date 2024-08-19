@@ -21,6 +21,11 @@ class SegmentationUMAPVisualization:
         segmentation, umap = self.predict(img)
         return self.segment_visualization(img, segmentation, umap, roi_mask=None, color_scheme_per_region=color_scheme_per_region)[-1]
 
+    def visualize(self, img, color_scheme_per_region):
+        segmentation, avgmz = self.predict(img)
+        return self.segment_visualization(img, segmentation, avgmz, roi_mask=None, color_scheme_per_region=color_scheme_per_region)
+
+
     def get_subsegmentation(
             self,
             img,
