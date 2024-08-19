@@ -11,14 +11,21 @@ from sklearn.cluster import KMeans, kmeans_plusplus
 
 
 class SaliencyOptimization:
-    def __init__(self, number_of_points=500, regularization_strength=0.005,
-                 sampling="coreset", num_epochs=200, init="random", similarity_reg=0):
+    def __init__(
+            self,
+            number_of_points=500,
+            regularization_strength=0.005,
+            sampling="coreset",
+            num_epochs=200,
+            init="random",
+            similarity_reg=0):
         self.num_epochs = num_epochs
         self.regularization_strength = regularization_strength
         self.sampling = sampling
         self.number_of_points = number_of_points
         self.init = init
         self.similarity_reg = similarity_reg
+
 
 def get_reference_points(self, data, Np):
     """Reduces (NxD) data matrix from N to Np data points.
@@ -33,10 +40,11 @@ def get_reference_points(self, data, Np):
     N = data.shape[0]
     D = data.shape[1]
     method = self.sampling
+
     if method == "random":
         return np.random.choice(list(range(N), number_of_points))
 
-    elif method == "kmeans++"
+    elif method == "kmeans++":
         _, indices = kmeans_plusplus(data, n_clusters=Np, random_state=0)
         return indices
 
@@ -63,19 +71,19 @@ def get_reference_points(self, data, Np):
         self.resample(number_of_points=self.number_of_points)
 
         if isinstance(self.init, np.ndarray):
-            self.visualization = torch.from_numpy(np.float32(self.init)/255) * 10 - 5
+            self.visualization = torch.from_numpy(
+                np.float32(self.init) / 255) * 10 - 5
             self.visualization = self.visualization.reshape(-1, 3)
 
-        elif self.init=="random":
+        elif self.init == "random":
             self.visualization = torch.rand(
                 size=(self.reshaped.shape[0], 3)) * 10 - 5
-            
+
         elif self.init == "top3":
-            self.visualization = torch.from_numpy(np.float32(top3(img))/255)
+            self.visualization = torch.from_numpy(np.float32(top3(img)) / 255)
             self.visualization = self.visualization.reshape(-1, 3)
         else:
             raise Exception(f"{self.init} not supported as initialization")
-
 
         if torch.cuda.is_available():
             self.visualization = self.visualization.cuda()
@@ -93,12 +101,16 @@ def get_reference_points(self, data, Np):
         self.mask = torch.from_numpy(self.mask_np).float().cuda()
 
     def resample(self, number_of_points):
-        sampled_indices = self.get_reference_points(self.reshaped, number_of_points)
+        sampled_indices = self.get_reference_points(
+            self.reshaped, number_of_points)
         self.indices = [
             i for i in sampled_indices if self.reshaped[i, :].max(axis=-1) > 0]
-            
+
         reference_points = self.reshaped[self.indices, :]
-        cosine = pairwise_distances(self.reshaped, reference_points, metric='cosine')
+        cosine = pairwise_distances(
+            self.reshaped,
+            reference_points,
+            metric='cosine')
         chebyshev = pairwise_distances(
             self.reshaped, reference_points, metric='chebyshev')
 
@@ -132,10 +144,10 @@ def get_reference_points(self, data, Np):
         saliency = (saliency * self.mask[:,
                                          None] * self.rank_squares).sum() / (self.mask[:,
                                                                                        None] * self.rank_squares).sum()
-        
+
         if self.similarity_reg > 0:
-            saliency = saliency + self.similarity_reg * torch.nn.MSELoss()(self.visualization, self.orig)
-        
+            saliency = saliency + self.similarity_reg * \
+                torch.nn.MSELoss()(self.visualization, self.orig)
 
         self.optim.zero_grad()
         loss = saliency
@@ -145,7 +157,6 @@ def get_reference_points(self, data, Np):
         x = self.visualization.detach().cpu().numpy()
         x[self.mask_np == 0] = 0
         x = x.reshape((self.img.shape[0], self.img.shape[1], 3))
-
 
         for i in range(3):
             x[:, :, i] = x[:, :, i] - np.percentile(x[:, :, i], 0.001)
