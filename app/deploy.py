@@ -112,7 +112,6 @@ def display_mzs(aucs_to_display, color_a, color_b, threshold=0.5, title=None):
     pos_aucs = {mz: pos_aucs[mz] for mz in pos_aucs_keys}
     neg_aucs = {mz: neg_aucs[mz] for mz in neg_aucs_keys}
 
-    print(f"display_mzs: {title} {len(neg_aucs)} {len(pos_aucs)}")
     for auc_group, color in zip([pos_aucs, neg_aucs], [color_a, color_b]):
         header_cols = st.columns(2)
         header_cols[0].text(f'{title} m/z values for ')
@@ -144,7 +143,6 @@ def display_mzs(aucs_to_display, color_a, color_b, threshold=0.5, title=None):
                         args=[
                             mz,
                             image_to_show])
-                    # create_ion_image(mz, image_to_show)
 
 
 def get_model():
