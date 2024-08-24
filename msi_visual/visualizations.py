@@ -128,14 +128,18 @@ def visualizations_from_explanations(
         intensity_image=intensity_image)
     return spatial_sum_visualization, global_percentile_visualization, normalized_by_spatial_sum, normalized_by_global_percentile
 
-def create_ion_image(img, mz_index):
+
+def create_ion_img(img, mz_index):
     ion = img[:, :, mz_index]
     ion = ion / np.percentile(ion[:], 99)
     ion[ion > 1] = 1
-    ion = np.uint8(255 * ion)
-    ion = cv2.applyColorMap(ion, cmapy.cmap('viridis'))[:, :, ::-1].copy()
     return ion
 
+def create_ion_heatmap(img, mz_index):
+    raw_ion = create_ion_img(img, mz_index)
+    ion = np.uint8(255 * raw_ion)
+    ion = cv2.applyColorMap(ion, cmapy.cmap('viridis'))[:, :, ::-1].copy()
+    return ion
 
 def get_mask(visualization, segmentation_mask, x, y):
     label = segmentation_mask[y, x]
@@ -159,6 +163,8 @@ class RegionComparison:
         values_b = self.img[mask_b > 0]
         t0 = time.time()
 
+        #peaks = list(range(self.img.shape[-1]))
+
         peaks_a30, _ = find_peaks(
             np.percentile(
                 values_a, 30, axis=0), height=(
@@ -171,8 +177,19 @@ class RegionComparison:
         peaks = list(peaks_a30) + list(peaks_b30)
         peaks = sorted(list(set(peaks)))
 
+        # ion_images = self.img[:, :, peaks]
+        # ion_images = ion_images / np.max(ion_images, axis=(0, 1))[None, None, :]
+        # ion_images_a = ion_images[mask_a > 0]
+        # ion_images_b = ion_images[mask_b > 0]
+        # score_a = ion_images_a.mean(axis=0)
+        # score_b = ion_images_b.mean(axis=0)
+        # score = score_a / (1e-5 + score_b)
+        # result = {self.mzs[peaks[i]] : score[i] for i in range(len(peaks))}
+
+
+
         result = scipy.stats.mannwhitneyu(
-            values_b[:, peaks], values_a[:, peaks], keepdims=True)
+            values_a[:, peaks], values_b[:, peaks], keepdims=True)
         us = result.statistic[0, :]
         p = result.pvalue[0, :]
         print("u test took", time.time() - t0)
@@ -180,7 +197,7 @@ class RegionComparison:
         result = us / (values_a.shape[0] * values_b.shape[0])
         result = dict(zip(range(len(result)), result))
 
-        result = {peaks[index]: u for index,
+        result = {self.mzs[peaks[index]]: u for index,
                   u in result.items() if p[index] < 0.05}
         return result
 
