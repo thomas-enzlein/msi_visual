@@ -158,7 +158,7 @@ class RegionComparison:
         self.img = img
         self.mzs = mzs
 
-    def ranking_comparison(self, mask_a, mask_b, peak_minimum=0):
+    def ranking_comparison(self, mask_a, mask_b, peak_minimum=0, method="U-Test"):
         values_a = self.img[mask_a > 0]
         values_b = self.img[mask_b > 0]
         t0 = time.time()
@@ -177,28 +177,28 @@ class RegionComparison:
         peaks = list(peaks_a30) + list(peaks_b30)
         peaks = sorted(list(set(peaks)))
 
-        # ion_images = self.img[:, :, peaks]
-        # ion_images = ion_images / np.max(ion_images, axis=(0, 1))[None, None, :]
-        # ion_images_a = ion_images[mask_a > 0]
-        # ion_images_b = ion_images[mask_b > 0]
-        # score_a = ion_images_a.mean(axis=0)
-        # score_b = ion_images_b.mean(axis=0)
-        # score = score_a / (1e-5 + score_b)
-        # result = {self.mzs[peaks[i]] : score[i] for i in range(len(peaks))}
+        if method == "U-Test":
+            result = scipy.stats.mannwhitneyu(
+                values_a[:, peaks], values_b[:, peaks], keepdims=True)
+            us = result.statistic[0, :]
+            p = result.pvalue[0, :]
+            print("u test took", time.time() - t0)
 
+            result = us / (values_a.shape[0] * values_b.shape[0])
+            result = dict(zip(range(len(result)), result))
 
+            result = {self.mzs[peaks[index]]: u for index,
+                    u in result.items() if p[index] < 0.05}
+        else:
+            ion_images = self.img[:, :, peaks]
+            ion_images = ion_images / np.max(ion_images, axis=(0, 1))[None, None, :]
+            ion_images_a = ion_images[mask_a > 0]
+            ion_images_b = ion_images[mask_b > 0]
+            score_a = ion_images_a.mean(axis=0)
+            score_b = ion_images_b.mean(axis=0)
+            score = score_a / (1e-5 + score_b)
+            result = {self.mzs[peaks[i]] : score[i] for i in range(len(peaks))}
 
-        result = scipy.stats.mannwhitneyu(
-            values_a[:, peaks], values_b[:, peaks], keepdims=True)
-        us = result.statistic[0, :]
-        p = result.pvalue[0, :]
-        print("u test took", time.time() - t0)
-
-        result = us / (values_a.shape[0] * values_b.shape[0])
-        result = dict(zip(range(len(result)), result))
-
-        result = {self.mzs[peaks[index]]: u for index,
-                  u in result.items() if p[index] < 0.05}
         return result
 
     def compare_one_point(self, point, size=3):
@@ -313,7 +313,6 @@ class RegionComparison:
             for _ in range(20 - len(cells)):
                 cells.append(np.ones((100, 100, 3), dtype=np.uint8) * 255)
             result = np.hstack(cells)
-            # result = np.hstack((combination, result))
         elif len(cells) > 20:
             result = []
             for i in range(math.ceil(len(cells) / 20)):
