@@ -31,6 +31,8 @@ with settings_tab:
     equalize = st.checkbox('Equalize')
     comparison = st.selectbox("Comparison type", ["Region with Region", "Region with all"], on_change=reset_clicks)
     selection_type = st.selectbox("Selection Type", ["Click", "Polygon"], on_change=reset_clicks)
+    stats_method = st.selectbox("Compairson method", ["U-Test", "Difference in ROI-MEAN"], on_change=reset_clicks)
+
 
 with viz_tab:
     viewer(folder, bins, equalize, comparison, selection_type)
@@ -63,7 +65,7 @@ if comparison == "Region with all":
             
             extraction_mzs = st.session_state["extraction_mzs"][data_path]
             next_click = ClickData(clicks[0].visualiation_path, clicks[0].point, mask_b, clicks[0].visualization, time.time())
-            stats = get_stats(data, extraction_mzs, [clicks[0], next_click])
+            stats = get_stats(data, extraction_mzs, [clicks[0], next_click], stats_method=stats_method)
             
             mask_a = np.uint8(mask_a.max(axis=-1)) * 255
             mask_b = np.uint8(mask_b.max(axis=-1)) * 255
@@ -93,7 +95,7 @@ else:
                     cols[1].image(mask_b)
                     data = get_data(data_path)
                     extraction_mzs = st.session_state["extraction_mzs"][data_path]
-                    stats = get_stats(data, extraction_mzs, clicks)
+                    stats = get_stats(data, extraction_mzs, clicks, stats_method=stats_method)
                     mask_a = np.uint8(clicks[0].mask.max(axis=-1)) * 255
                     mask_b = np.uint8(clicks[1].mask.max(axis=-1)) * 255
                     with st.spinner(text=f"Comparing regions.."):

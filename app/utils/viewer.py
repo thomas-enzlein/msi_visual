@@ -139,7 +139,7 @@ def create_ion_image(img, mz, extraction_mzs):
     st.session_state.ion = ion
     return ion, closest_mz
 
-def get_stats(data, extraction_mzs, clicks):
+def get_stats(data, extraction_mzs, clicks, stats_method="U-Test"):
     visualization_path_a, visualization_path_b = clicks[0].visualiation_path, clicks[1].visualiation_path,
     mask_a = np.uint8(clicks[0].mask.max(axis=-1)) * 255
     mask_b = np.uint8(clicks[1].mask.max(axis=-1)) * 255
@@ -154,7 +154,7 @@ def get_stats(data, extraction_mzs, clicks):
         comparison = visualizations.RegionComparison(
             data,
             mzs=extraction_mzs)
-        stats = comparison.ranking_comparison(mask_a, mask_b)
+        stats = comparison.ranking_comparison(mask_a, mask_b, method=stats_method)
         st.session_state['stats'][key] = stats
     return stats
 
@@ -208,13 +208,23 @@ def get_aggregated_ion_image(stats, data, extraction_mzs):
 
     ion = data / np.max(data, axis=(0, 1))
     ion = (ion[:, :, mz_indices] * scores[None, None, :]).sum(axis=-1)
-    ion = ion / np.sum(scores)
     ion = ion / np.max(ion)
     ion = np.uint8(255 * ion)
-    ion = cv2.equalizeHist(ion)
-
     ion = cv2.applyColorMap(ion, cmapy.cmap("cividis"))[:, :, ::-1]
     return ion
+    scores = np.float32([stats[mz] for mz in mzs])
+    mz_indices = np.int32([extraction_mzs.index(mz) for mz in mzs])
+    mz_indices = mz_indices[np.argsort(scores)[-5 : ]]
+
+    top5 = data / np.max(data, axis=(0, 1))
+    top5 = top5[:, :, mz_indices].mean(axis=-1)
+    top5 = top5 / np.max(top5)
+    top5 = np.uint8(255 * top5)
+
+
+    
+    top5 = cv2.applyColorMap(top5, cmapy.cmap("cividis"))[:, :, ::-1]
+    #return np.hstack((ion, top5))
 
 
 def get_mz_value_img(stats, height, top=5):
@@ -267,24 +277,14 @@ def display_aggregated_ion_image(stats, data, extraction_mzs, color_scheme="civi
     mz_list = cv2.resize(mz_list, (mz_list.shape[1], img.shape[0]))
     img1 = np.hstack((img, spectrum, mz_list))
 
-    reverse_stats = {mz: 1-stats[mz] for mz in stats}
-    img = get_aggregated_ion_image(reverse_stats, data, extraction_mzs)
-    img = cv2.resize(img, (8*img.shape[1], 8*img.shape[0]))
-    spectrum = get_2d_spectrum(
-        reverse_stats,
-        extraction_mzs,
-        color_scheme="cividis")
-    spectrum = cv2.resize(spectrum, (img.shape[1], img.shape[0]))
-    mz_list = get_mz_value_img(reverse_stats, img.shape[0])
-    mz_list = cv2.resize(mz_list, (mz_list.shape[1], img.shape[0]))
-    img2 = np.hstack((img, spectrum, mz_list))    
-    return img1, img2
-
+    return img1
 
 def display_comparison(data_path, stats, data, visualization_a, visualization_b, mask_a, mask_b, extraction_mzs, threshold=1.0):
-    key = data_path + ''.join([str(mz) + str(stats[mz]) for mz in stats])
+    key = "3"+data_path + ''.join([str(mz) + str(stats[mz]) for mz in stats])
     if key not in st.session_state:
-        img1, img2 = display_aggregated_ion_image(stats, data, extraction_mzs)
+        img1 = display_aggregated_ion_image(stats, data, extraction_mzs)
+        reverse_stats = {mz: 1-stats[mz] for mz in stats}
+        img2 = display_aggregated_ion_image(reverse_stats, data, extraction_mzs)
         st.session_state[key] = img1, img2
     else:
         img1, img2 = st.session_state[key]
