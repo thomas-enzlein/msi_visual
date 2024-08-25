@@ -189,6 +189,7 @@ class RegionComparison:
 
             result = {self.mzs[peaks[index]]: u for index,
                     u in result.items() if p[index] < 0.05}
+
         else:
             ion_images = self.img[:, :, peaks]
             ion_images = ion_images / np.max(ion_images, axis=(0, 1))[None, None, :]
@@ -198,6 +199,9 @@ class RegionComparison:
             score_b = ion_images_b.mean(axis=0)
             score = score_a / (1e-5 + score_b)
             result = {self.mzs[peaks[i]] : score[i] for i in range(len(peaks))}
+
+            norm = np.max(list(result.values()))
+            result = {mz: result[mz]/norm for mz in result}
 
         return result
 
