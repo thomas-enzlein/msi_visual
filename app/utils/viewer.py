@@ -106,6 +106,76 @@ def viewer(folder, bins, equalize, comparison, selection_type):
                                 draw[mask == 0] = 0
                                 st.session_state["clicks"][data_path].append(ClickData(path, polygon, draw, visualization, time.time()))
 
+def region_with_region_comparisons(stats_method):
+    for data_path in st.session_state["clicks"]:
+        st.session_state["clicks"][data_path] = sorted(st.session_state["clicks"][data_path], key = lambda x: time.time() - x.timestamp)[:2]
+        clicks = st.session_state["clicks"][data_path]
+        if len(clicks) > 0:
+            cols = st.columns(2)
+            mask_a = clicks[0].mask
+            cols[0].image(mask_a)
+            if len(clicks) == 2:
+                mask_b = clicks[1].mask
+                cols[1].image(mask_b)
+                data = get_data(data_path)
+                extraction_mzs = st.session_state["extraction_mzs"][data_path]
+                stats = get_stats(data, extraction_mzs, clicks, stats_method=stats_method)
+                mask_a = np.uint8(clicks[0].mask.max(axis=-1)) * 255
+                mask_b = np.uint8(clicks[1].mask.max(axis=-1)) * 255
+                with st.spinner(text=f"Comparing regions.."):
+                    display_comparison(data_path, stats, data, clicks[0].visualization, clicks[1].visualization, mask_a, mask_b, extraction_mzs, threshold=None)
+
+
+def region_with_all_comparisons(stats_method):
+    for data_path in st.session_state["clicks"]:
+        st.session_state["clicks"][data_path] = sorted(st.session_state["clicks"][data_path], key = lambda x: time.time() - x.timestamp)[:1]
+        clicks = st.session_state["clicks"][data_path]
+        if len(clicks) == 0:
+            break
+        cols = st.columns(2)
+        data = get_data(data_path)
+        mask_a = clicks[0].mask
+        cols[0].image(mask_a)
+        mask_b = 255 - mask_a
+        mask_b[data.max(axis=-1) == 0] = 0
+        mask_b[mask_a.max(axis=-1) > 0] = 0
+        mask_b_reduced = mask_b * 0
+        mask_b_reduced[::3, ::3, :] = mask_b[::3, ::3, :]
+        mask_b = mask_b_reduced.copy()
+        cols[1].image(mask_b)
+        extraction_mzs = st.session_state["extraction_mzs"][data_path]
+        next_click = ClickData(clicks[0].visualiation_path, clicks[0].point, mask_b, clicks[0].visualization, time.time())
+        stats = get_stats(data, extraction_mzs, [clicks[0], next_click], stats_method=stats_method)
+        mask_a = np.uint8(mask_a.max(axis=-1)) * 255
+        mask_b = np.uint8(mask_b.max(axis=-1)) * 255
+        with st.spinner(text=f"Comparing regions.."):
+            display_comparison(data_path,
+                stats,
+                data,
+                clicks[0].visualization,
+                next_click.visualization, mask_a, mask_b, extraction_mzs, threshold=None)
+
+def show_ion_images(mzs):
+    for path in st.session_state["data"]:
+        img = st.session_state["data"][path]
+        aggregated = []
+        for mz in mzs:
+            extraction_mzs = st.session_state["extraction_mzs"][path]
+
+            ion, mz = create_ion_image(img, mz, extraction_mzs)
+            st.image(ion)
+            ion, mz = get_raw_ion_image(img, mz, extraction_mzs)                    
+            aggregated.append(ion)
+        
+        if len(aggregated) > 1:
+            st.write('mean-aggregated')
+            aggregated = np.float32(aggregated)
+            aggregated = np.mean(aggregated, axis=0)
+            aggregated = aggregated / np.max(aggregated)
+            aggregated = np.uint8(aggregated * 255)
+            aggregated = cv2.applyColorMap(aggregated, cmapy.cmap('viridis'))[:, :, ::-1].copy()
+            st.image(aggregated)
+
 
 def show_mz_on_ion_image(ion, mz):
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -202,28 +272,29 @@ def get_aggregated_ion_image(stats, data, extraction_mzs):
     mzs = list(stats.keys())
     mz_indices = [extraction_mzs.index(mz) for mz in mzs]
     scores = np.float32([stats[mz] for mz in mzs])
-    scores[scores < 0.8] = 0
-    scores = scores ** 4
-    scores = scores / np.max(scores)
 
-    ion = data / np.max(data, axis=(0, 1))
-    ion = (ion[:, :, mz_indices] * scores[None, None, :]).sum(axis=-1)
-    ion = ion / np.max(ion)
-    ion = np.uint8(255 * ion)
-    ion = cv2.applyColorMap(ion, cmapy.cmap("cividis"))[:, :, ::-1]
-    return ion
+    # scores[scores < 0.8] = 0
+    # scores = scores ** 4
+    # scores = scores / np.max(scores)    
+    # ion = data / np.max(data, axis=(0, 1))
+    # ion = (ion[:, :, mz_indices] * scores[None, None, :]).sum(axis=-1)
+    # ion = ion / np.max(ion)
+    # ion = np.uint8(255 * ion)
+    # ion = cv2.applyColorMap(ion, cmapy.cmap("cividis"))[:, :, ::-1]
+    # return ion
     scores = np.float32([stats[mz] for mz in mzs])
     mz_indices = np.int32([extraction_mzs.index(mz) for mz in mzs])
     mz_indices = mz_indices[np.argsort(scores)[-5 : ]]
 
     top5 = data / np.max(data, axis=(0, 1))
     top5 = top5[:, :, mz_indices].mean(axis=-1)
-    top5 = top5 / np.max(top5)
-    top5 = np.uint8(255 * top5)
-
-
     
+    #top5 = top5 / np.max(top5)
+    top5 = top5 / np.percentile(top5, 99)
+    top5[top5 > 1] = 1
+    top5 = np.uint8(255 * top5)
     top5 = cv2.applyColorMap(top5, cmapy.cmap("cividis"))[:, :, ::-1]
+    return top5
     #return np.hstack((ion, top5))
 
 
@@ -280,7 +351,7 @@ def display_aggregated_ion_image(stats, data, extraction_mzs, color_scheme="civi
     return img1
 
 def display_comparison(data_path, stats, data, visualization_a, visualization_b, mask_a, mask_b, extraction_mzs, threshold=1.0):
-    key = "3"+data_path + ''.join([str(mz) + str(stats[mz]) for mz in stats])
+    key = "6"+data_path + ''.join([str(mz) + str(stats[mz]) for mz in stats])
     if key not in st.session_state:
         img1 = display_aggregated_ion_image(stats, data, extraction_mzs)
         reverse_stats = {mz: 1-stats[mz] for mz in stats}
