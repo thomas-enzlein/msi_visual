@@ -209,15 +209,15 @@ class RegionComparison:
         x, y = point
         x, y = int(x), int(y)
         mask_b = np.zeros(
-            (self.mz_image.shape[0],
-             self.mz_image.shape[1]),
+            (self.img.shape[0],
+             self.img.shape[1]),
             dtype=np.uint8)
         mask_b = cv2.circle(mask_b, (x, y), size, 255, -1)
         mask_b[y, x] = 0
 
         mask_a = np.zeros(
-            (self.mz_image.shape[0],
-             self.mz_image.shape[1]),
+            (self.img.shape[0],
+             self.img.shape[1]),
             dtype=np.uint8)
         mask_a[y, x] = 255
         aucs = self.ranking_comparison(mask_a, mask_b)
@@ -236,19 +236,19 @@ class RegionComparison:
         x1, y1 = point_a
         x2, y2 = point_b
 
-        values_a = self.mz_image[y1, x1, :]
-        values_b = self.mz_image[y2, x2, :]
+        values_a = self.img[y1, x1, :]
+        values_b = self.img[y2, x2, :]
 
         indices_a = list(np.argsort(values_a)[-top_mzs:])
         indices_b = list(np.argsort(values_b)[-top_mzs:])
         indices = sorted(indices_a + indices_b)
 
-        x = self.mz_image[:, :, indices]
+        x = self.img[:, :, indices]
         x = x.reshape((x.shape[0] * x.shape[1], -1))
         ranks = x.argsort(
             axis=0).argsort(
             axis=0).reshape(
-            (self.mz_image.shape[0], self.mz_image.shape[1], -1))
+            (self.img.shape[0], self.img.shape[1], -1))
 
         scores = (-ranks[y1, x1] + ranks[y2, x2]) / \
             (ranks.shape[0] * ranks.shape[0])
@@ -275,62 +275,3 @@ class RegionComparison:
         image = self._create_auc_visualization(aucs, color_a, color_b)
 
         return image, label_a, label_b, (color_a, color_b, aucs)
-
-    def _create_auc_visualization(self, aucs, color_a, color_b):
-        combination = np.hstack((color_a *
-                                 np.ones((100, 100, 3), dtype=np.uint8), color_b *
-                                 np.ones((100, 100, 3), dtype=np.uint8)))
-        combination = np.uint8(combination)
-        cells = []
-        sorted_indices = sorted(
-            list(
-                aucs.keys()),
-            key=lambda mz: aucs[mz],
-            reverse=True)
-
-        for mz in sorted_indices:
-            auc = aucs[mz]
-            cell = np.ones((100, 100, 3), dtype=np.uint8) * 255
-
-            if auc > 0.5:
-                icon = np.ones((8, 8, 3)) * color_b
-            else:
-                icon = np.ones((8, 8, 3)) * color_a
-
-            cell[20: 20 + icon.shape[0], 10: 10 + icon.shape[1], :] = icon
-
-            font = cv2.FONT_HERSHEY_SIMPLEX
-            bottomLeftCornerOfText = (10, 50)
-            fontScale = 0.5
-            fontColor = (0, 0, 00)
-            thickness = 1
-            lineType = 1
-            cell = cv2.putText(cell, f"{mz:.3f}",
-                               bottomLeftCornerOfText,
-                               font,
-                               fontScale,
-                               fontColor,
-                               thickness,
-                               lineType)
-            cells.append(cell)
-        if len(cells) <= 20:
-            for _ in range(20 - len(cells)):
-                cells.append(np.ones((100, 100, 3), dtype=np.uint8) * 255)
-            result = np.hstack(cells)
-        elif len(cells) > 20:
-            result = []
-            for i in range(math.ceil(len(cells) / 20)):
-                row = cells[i * 20: i * 20 + 20]
-                if len(row) < 20:
-                    for _ in range(20 - len(row)):
-                        row.append(
-                            np.ones(
-                                (100, 100, 3), dtype=np.uint8) * 255)
-                row = np.hstack(row)
-                # row = np.hstack((combination, row))
-                result.append(row)
-            print(len(result))
-            result = np.vstack(result)
-            print(result.shape)
-
-        return result

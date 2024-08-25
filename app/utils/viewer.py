@@ -79,8 +79,10 @@ def viewer(folder, bins, equalize, comparison, selection_type):
                 if selected_visualization and path != selected_visualization:
                     continue
                 visualization, seg = get_image(Path(folder) / path, bins, equalize)
+
                 data_path = csv[csv.visualization==path].data.values[0]
                 with col:
+                    st.write(path)
                     if selection_type == "Click":
                         point = streamlit_image_coordinates(visualization, key=path+str(st.session_state['id']))
                         if point:
@@ -105,6 +107,33 @@ def viewer(folder, bins, equalize, comparison, selection_type):
                                 draw = visualization.copy()
                                 draw[mask == 0] = 0
                                 st.session_state["clicks"][data_path].append(ClickData(path, polygon, draw, visualization, time.time()))
+
+
+def point_with_point_comparisons(stats_method):
+    for data_path in st.session_state["clicks"]:
+        st.session_state["clicks"][data_path] = sorted(st.session_state["clicks"][data_path], key = lambda x: time.time() - x.timestamp)[:2]
+        clicks = st.session_state["clicks"][data_path]
+        if len(clicks) > 0:
+            cols = st.columns(2)
+            if len(clicks) == 2:
+                data = get_data(data_path)
+                extraction_mzs = st.session_state["extraction_mzs"][data_path]
+                stats = get_stats_point_to_point(data, extraction_mzs, clicks)
+                mask = clicks[0].visualization * 0
+                mask = cv2.circle(mask, clicks[0].point, 3, [255, 255, 255], -1)
+                mask_a = clicks[0].visualization.copy()
+                mask_a[mask == 0] = 0
+
+                mask = clicks[1].visualization * 0
+                mask = cv2.circle(mask, clicks[1].point, 3, [255, 255, 255], -1)
+                mask_b = clicks[1].visualization.copy()
+                mask_b[mask == 0] = 0
+                
+                cols[0].image(mask_a)
+                cols[1].image(mask_b)
+                with st.spinner(text=f"Comparing points.."):
+                    display_comparison(data_path, stats, data, clicks[0].visualization, clicks[1].visualization, mask_a, mask_b, extraction_mzs, threshold=None)
+
 
 def region_with_region_comparisons(stats_method):
     for data_path in st.session_state["clicks"]:
@@ -206,8 +235,28 @@ def create_ion_image(img, mz, extraction_mzs):
     closest_mz, mz_index = get_closest_mz(mz, extraction_mzs)
     ion = visualizations.create_ion_heatmap(img, mz_index)
     ion = show_mz_on_ion_image(ion, closest_mz)
+    print("setting ion", mz, closest_mz)
     st.session_state.ion = ion
     return ion, closest_mz
+
+def get_stats_point_to_point(data, extraction_mzs, clicks):
+    visualization_path_a, visualization_path_b = clicks[0].visualiation_path, clicks[1].visualiation_path,
+    point_a, point_b = clicks[0].point, clicks[1].point
+    key = visualization_path_a + visualization_path_b + str(point_a) + str(point_b) + "p2p"
+    if 'stats' not in st.session_state:
+        st.session_state['stats'] = {}
+        
+    if key in st.session_state['stats']:
+        stats = st.session_state['stats'][key]
+    else:
+        comparison = visualizations.RegionComparison(
+            data,
+            mzs=extraction_mzs)
+        stats = comparison.compare_two_points(point_a, point_b)
+        st.session_state['stats'][key] = stats
+    return stats
+        
+
 
 def get_stats(data, extraction_mzs, clicks, stats_method="U-Test"):
     visualization_path_a, visualization_path_b = clicks[0].visualiation_path, clicks[1].visualiation_path,
@@ -334,10 +383,9 @@ def get_mz_value_img(stats, height, top=5):
     result = cv2.resize(result, (height//top, height))
     return result
 
-
-
 def display_aggregated_ion_image(stats, data, extraction_mzs, color_scheme="cividis"):
     img = get_aggregated_ion_image(stats, data, extraction_mzs)
+    img = img.transpose().transpose(1, 2, 0)[::-1, :, :]
     img = cv2.resize(img, (8*img.shape[1], 8*img.shape[0]))
     spectrum = get_2d_spectrum(
         stats,
@@ -431,3 +479,6 @@ def display_mzs(img, stats, color_a, color_b, extraction_mzs, threshold=1.0, num
                             extraction_mzs])
 
             
+    with st.sidebar:
+        if "ion" in st.session_state:
+            st.image(st.session_state.ion)
