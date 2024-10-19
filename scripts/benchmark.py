@@ -1,5 +1,6 @@
 from msi_visual.saliency_opt import SaliencyOptimization
 from msi_visual.nmf_3d import NMF3D
+
 from msi_visual.nonparametric_umap  import MSINonParametricUMAP 
 from msi_visual.percentile_ratio import TOP3, PercentileRatio
 from msi_visual.metrics import MSIVisualizationMetrics
