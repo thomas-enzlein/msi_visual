@@ -21,11 +21,7 @@ class NMF3D:
         return f"NMF-3D max_iter={self.max_iter}"
 
     def fit(self, images):
-        if self.end_bin is None:
-            self.end_bin = images[0].shape[-1]
-
-        vector = np.concatenate([img[:, :, self.start_bin:self.end_bin].reshape(
-            -1, images[0][:, :, self.start_bin:self.end_bin].shape[-1]) for img in images], axis=0)
+        vector = np.concatenate([img.reshape(-1, images[0].shape[-1]) for img in images], axis=0)
         vector = vector.reshape((-1, vector.shape[-1]))
         self.model = NMF(
             n_components=self.k,
@@ -51,7 +47,7 @@ class NMF3D:
         return result
 
     def predict(self, img):
-        vector = img[:, :, self.start_bin:self.end_bin].reshape(
+        vector = img.reshape(
             (-1, img.shape[-1]))
         w_new, h_new, n_iter = non_negative_factorization(
             vector, H=self.H, W=None, n_components=self.k, update_H=False, random_state=0)

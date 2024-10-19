@@ -24,5 +24,6 @@ def get_args():
 if __name__ == "__main__":
     args = get_args()
     print(args)
-    extraction = BrukerTimsToNumpy(args.id, args.start_mz, args.end_mz, args.bins, args.nonzero)
+    extraction = BrukerTimsToNumpy(id=args.id, min_mz=args.start_mz, max_mz=args.end_mz,
+                                   bins_per_mz=args.bins, nonzero=args.nonzero)
     extraction(args.input_path, args.output_path)
