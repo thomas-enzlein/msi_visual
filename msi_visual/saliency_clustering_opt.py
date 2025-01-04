@@ -77,7 +77,7 @@ class SaliencyClusteringOptimization(SaliencyOptimization):
         
         #print(saliency_loss, loss)
 
-        return 0.1*loss + saliency_loss
+        return 5*loss + saliency_loss
 
 
     def __repr__(self):
