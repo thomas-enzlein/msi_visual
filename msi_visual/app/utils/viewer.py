@@ -451,7 +451,7 @@ def get_2d_spectrum(
     qr_cell_size = 10
     spec = qr_image[:, :, ::-1]
     plt.imshow(spec)
-    plt.annotate(f"m/z {min(extraction_mzs):.1f}", (0, 20))
+    plt.annotate(f"m/z {min(extraction_mzs):.2f}", (0, 20))
     plt.annotate(f"m/z {max(extraction_mzs)}", (0.8 *spec.shape[1], 0.95*spec.shape[0]))
     plt.tight_layout()
     plt.axis('off')
@@ -462,13 +462,20 @@ def get_2d_spectrum(
     return data
 
 def get_aggregated_ion_image(stats, data, extraction_mzs):
-    mzs = list(stats.keys())
+    # get mz keys
+    mzs = list(stats.keys())    
+
+    #get mz indices in extraction_mzs
     mz_indices = [extraction_mzs.index(mz) for mz in mzs]
+
+    # get the mz scores from the stats
     scores = np.float32([stats[mz] for mz in mzs])
-    scores = np.float32([stats[mz] for mz in mzs])
-    mz_indices = np.int32([extraction_mzs.index(mz) for mz in mzs])
-    mz_indices = mz_indices[np.argsort(scores)[-5 : ]]
-    mz_indices = [i for i in mz_indices if scores[i] > 0]
+
+    #get the mz indices of the top 5 scores
+    top_indices = np.argsort(scores)[-5 : ]
+    mz_indices = [mz_indices[i] for i in top_indices if scores[i] != 0]
+
+
 
     top5 = data / np.max(data, axis=(0, 1))
     top5 = top5[:, :, mz_indices].mean(axis=-1)
@@ -527,8 +534,6 @@ def display_comparison(data_path, stats, data, visualization_a, visualization_b,
         img1 = display_aggregated_ion_image(stats, data, extraction_mzs, rotate=st.session_state['rotate'])
         reverse_stats = {mz: 1-stats[mz] for mz in stats}
         img2 = display_aggregated_ion_image(reverse_stats, data, extraction_mzs, rotate=st.session_state['rotate'])
-
-
         img3 = GetOverlay()(stats, reverse_stats, data, extraction_mzs)
 
         #joblib.dump((stats, reverse_stats, data, extraction_mzs), "data.joblib")
