@@ -5,8 +5,9 @@ from msi_visual.normalization import spatial_total_ion_count, total_ion_count, m
 
 
 class TOP3:
-    def __init__(self, low=99.9):
+    def __init__(self, low=99.9, norm_percentile=99.9):
         self.low = low
+        self.norm_percentile = norm_percentile
 
     def __repr__(self):
         return f"TOP-3 Intensities. low={self.low}"
@@ -17,13 +18,13 @@ class TOP3:
         p1 = sorted[:, :, -2]
         p2 = sorted[:, :, -3]
         a = p0
-        a = a / np.percentile(a, 99.9)
+        a = a / np.percentile(a, self.norm_percentile)
         a[a > 1] = 1
         b = p1
-        b = b / np.percentile(b, 99.9)
+        b = b / np.percentile(b, self.norm_percentile)
         b[b > 1] = 1
         c = p2
-        c = c / np.percentile(c, 99.9)
+        c = c / np.percentile(c, self.norm_percentile)
         c[c > 1] = 1
 
         visualization = cv2.merge([(np.uint8(255 * a)), (np.uint8(255 * b)), (np.uint8(255 * c))])
