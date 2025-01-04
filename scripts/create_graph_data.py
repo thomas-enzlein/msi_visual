@@ -1,5 +1,6 @@
 import sys
 import json
+from msi_visual.normalization import total_ion_count, spatial_total_ion_count
 from msi_visual.supervised.annotations import get_img, get_visualization, get_dataset
 from xgboost import XGBClassifier
 import joblib
@@ -18,20 +19,19 @@ from sklearn.utils.class_weight import compute_sample_weight
 
 
 if __name__ == "__main__":
-    extraction_mzs = get_extraction_mz_list(r"D:\maldi\slides\slide2_notol_5_bin")
+    extraction_mzs = get_extraction_mz_list(r"E:\MSImaging-data\_msi_visual\Extractions\NRL4485-s2\20_bins")
 
-    paths = [(r"D:\maldi\slides\slide2_notol_5_bin\0.npy", 1),
-            (r"D:\maldi\slides\slide2_notol_5_bin\2.npy", 0),
-            (r"D:\maldi\slides\slide2_notol_5_bin\1.npy", 2),
-            (r"D:\maldi\slides\slide2_notol_5_bin\3.npy", 3)]
-
+    paths = [(r"E:\MSImaging-data\_msi_visual\Extractions\NRL4485-s2\20_bins\0.npy", 1),
+            (r"E:\MSImaging-data\_msi_visual\Extractions\NRL4485-s2\20_bins\2.npy", 0),
+            (r"E:\MSImaging-data\_msi_visual\Extractions\NRL4485-s2\20_bins\1.npy", 2),
+            (r"E:\MSImaging-data\_msi_visual\Extractions\NRL4485-s2\20_bins\3.npy", 3)]
 
 
     similarity = {}
     separation_data = {}
     ks = {}
 
-    X_all, y_all, label_encoder_all = get_dataset(r"expAI_NRL4489-s2_json_new6.json", paths, subsample=10, ignore=["HPF", "CTX"])
+    X_all, y_all, label_encoder_all = get_dataset(r"NRL4485-s2_reannotation_23-12-24_PAHJ.json", paths, subsample=5, normalization=spatial_total_ion_count)
     categories = label_encoder_all.classes_
     for i in tqdm.tqdm(range(len(categories))):
         category1 = categories[i]
@@ -45,7 +45,8 @@ if __name__ == "__main__":
             X_all_b = X_all[indices_b, :]
             X = np.concatenate([X_all_a, X_all_b], axis=0)
             y = [0] * len(X_all_a) + [1] * len(X_all_b)    
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.6, random_state=42, stratify=y)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42, stratify=y)
+
             sample_weights = compute_sample_weight(class_weight='balanced', y=y_train)
             
             xgb_model = XGBClassifier(
@@ -63,20 +64,37 @@ if __name__ == "__main__":
 
             similarity[(category1, category2)] = 1 - balanced_accuracy
             
-            explainer = shap.TreeExplainer(xgb_model)
-            shap_values = explainer.shap_values(X_test[::5, :])
-            meanabs = np.abs(shap_values).mean(axis=0)
+            # # explainer = shap.TreeExplainer(xgb_model)
+            # # shap_values = explainer.shap_values(X_test[::5, :])
+            # # meanabs = np.abs(shap_values).mean(axis=0)
             
-            indices = list(np.argsort(meanabs)[-20 : ])
-            
+            # # indices = list(np.argsort(meanabs)[-20 : ])
+
+            indices = list(range(len(extraction_mzs)))
+
             separation_data[(category1, category2)] = []
+            separation_data[(category2, category1)] = []
+
+
+
             for index in indices:
-                x_a, x_b = X_all_a[::5, index], X_all_b[::5, index]
+                x_a, x_b = X_all_a[:, index], X_all_b[:, index]
                 statistic, pvalue = mannwhitneyu(x_a, x_b)
                 statistic = statistic / (len(x_a) * len(x_b))
-                separation_data[(category1, category2)].append((extraction_mzs[index], statistic, pvalue))
+                intensity1 = np.mean(x_a)
+                intensity2 = np.mean(x_b)
+                if pvalue < 0.05 and statistic > 0.6:
+                    separation_data[(category1, category2)].append((extraction_mzs[index], statistic, pvalue, intensity1, intensity2))
+                if pvalue < 0.05 and statistic < 0.4:
+                    separation_data[(category2, category1)].append((extraction_mzs[index], 1-statistic, pvalue, intensity2, intensity1))
+
+            print(category1, category2, len(separation_data[(category1, category2)]), len(separation_data[(category2, category1)]))
+
+            separation_data[(category1, category2)] = sorted(separation_data[(category1, category2)], key=lambda x: x[1], reverse=True)
+            separation_data[(category2, category1)] = sorted(separation_data[(category2, category1)], key=lambda x: x[1], reverse=True)
+
                 
         result = {"ks": ks, "separation_data": separation_data, "similarity": similarity, "categories": categories}
 
-        with open("graph_data_coarse_model.joblib", "wb") as f:
+        with open("graph_data_coarse_model_20bin_27-12-2024.joblib", "wb") as f:
             joblib.dump(result, f)
