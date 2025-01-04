@@ -5,14 +5,15 @@ from xgboost import XGBClassifier
 import joblib
 
 if __name__ == "__main__":
-    path1 = r"D:\maldi\slides\slide2_notol_5_bin\0.npy"
-    path2 = r"D:\maldi\slides\slide2_notol_5_bin\2.npy"
+
+    path1 = r"E:\\MSImaging-data\\_msi_visual\\Extractions\\NRL4485-s2\\20_bins\\0.npy"
+    path2 = r"E:\\MSImaging-data\\_msi_visual\\Extractions\\NRL4485-s2\\20_bins\\2.npy"
     img = get_img(path1)
     img2 = get_img(path2)
     all_images = [img, img2]
     X, y, label_encoder = get_dataset(r"expAI_NRL4489-s2_json.json", all_images, subsample=10)
 
-
+    print("Starting training", X.shape)
 
     # Initialize and train XGBoost classifier
     xgb_model = XGBClassifier(
