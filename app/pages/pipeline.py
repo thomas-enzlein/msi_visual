@@ -70,28 +70,33 @@ with pipeline_tab:
         if regions:
             for index, path in enumerate(regions):
                 img = normalization(np.load(path))
-
+                
                 for method_index, method in enumerate(models):
-                    method._trained = False
-                    progress = (index * len(models) + method_index) / (len(regions) * len(models))
-                    with st.spinner(f'Computing {method} for {path}'):
-                        result = method(img)
-                        if not isinstance(result, list):
-                            result = [result]
-                        for visualization_index, visualization in enumerate(result):
-                            visualization[img.max(axis=-1) == 0] = 0
-                            if len(result) > 1:
-                                name = str(index) + "_" + str(method).replace(' ', '').replace(':', '_') + str(visualization_index) + '.png'
-                            else:
-                                name = str(index) + "_" + str(method).replace(' ', '').replace(':', '_') + '.png'
-                                
-                            visualization_output_path = str(Path(output_path) / name)
-                            Image.fromarray(visualization).save(visualization_output_path)
+                    try:
+                        method._trained = False
+                        progress = (index * len(models) + method_index) / (len(regions) * len(models))
+                        with st.spinner(f'Computing {method} for {path}'):
+                            result = method(img)
+                            if not isinstance(result, list):
+                                result = [result]
+                            for visualization_index, visualization in enumerate(result):
+                                visualization[img.max(axis=-1) == 0] = 0
+                                if len(result) > 1:
+                                    name = str(index) + "_" + str(method).replace(' ', '').replace(':', '_') + str(visualization_index) + '.png'
+                                else:
+                                    name = str(index) + "_" + str(method).replace(' ', '').replace(':', '_') + '.png'
+                                    
+                                visualization_output_path = str(Path(output_path) / name)
+                                Image.fromarray(visualization).save(visualization_output_path)
 
-                            paths["visualization"].append(name)
-                            paths["data"].append(path)
-                            paths["method"].append(str(method))
-                    st.progress(progress)
+                                paths["visualization"].append(name)
+                                paths["data"].append(path)
+                                paths["method"].append(str(method))
+                        st.progress(progress)
+                        pd.DataFrame.from_dict(paths).to_csv(str(Path(output_path) / "visualization_details.csv"), index=False)
+                    except Exception as e:
+                        print(f"Error: {e}")
+                        st.write(str(e))
 
 
-                pd.DataFrame.from_dict(paths).to_csv(str(Path(output_path) / "visualization_details.csv"), index=False)
+                    
