@@ -1,6 +1,7 @@
 import streamlit as st
 import joblib
 from msi_visual.saliency_opt import SaliencyOptimization
+from msi_visual.spearman_opt import SpearmanOptimization
 from msi_visual.nmf_3d import NMF3D
 from msi_visual.nonparametric_umap  import MSINonParametricUMAP
 from msi_visual.kmeans_segmentation import KmeansSegmentation
@@ -12,7 +13,7 @@ from msi_visual.segmentation_visualization_comb import SegmentationAndGuidingIma
 from msi_visual.normalization import total_ion_count, spatial_total_ion_count
 
 def create_pipeline():
-    options = ["NMF3D", "Segmentation-NMF", "Segmentation-Kmeans", "Saliency Optimization", "UMAP-3D", "TOP-3", "Percentile-Ratio", "Existing model", "Combining with Segmentation"]
+    options = ["NMF3D", "Segmentation-NMF", "Segmentation-Kmeans", "Saliency Optimization", "UMAP-3D", "TOP-3", "Percentile-Ratio", "Existing model", "Combining with Segmentation", "Spearman Optimization"]
     method = st.selectbox("Add visualization method", options, index=None)
 
     model = None
@@ -59,6 +60,18 @@ def create_pipeline():
         if st.button("Add"):
             model = SaliencyOptimization(number_of_points=number_of_points, regularization_strength=regularization_strength,
                 sampling=sampling, num_epochs=epochs)
+            
+    elif method == "Spearman Optimization":
+        number_of_points = st.number_input("Number of reference points", value=1000, min_value=50, step=1)
+        sampling = st.selectbox("Reference point sampling method", ["coreset", "random", "kmeans++", "kmeans"])
+        regularization_strength=st.number_input("Rank loss Regularization", value=0.001, min_value=0.0, step=1e-4, format="%.5f")
+        epochs = st.number_input("Number of epochs", value=200, min_value=1, step=1)
+        
+        if st.button("Add"):
+            model = SpearmanOptimization(number_of_points=number_of_points, regularization_strength=regularization_strength,
+                sampling=sampling, num_epochs=epochs)
+
+
     elif method == "UMAP-3D":
         min_dist = st.number_input("min_dist", value=0.5, min_value=0.0)
         distance = st.selectbox('Distance', ['euclidean', 'chebyshev'])
