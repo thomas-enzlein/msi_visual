@@ -116,13 +116,13 @@ if __name__ == "__main__":
                 method = PercentileRatio()
             elif name == "SaliencyClusteringOptimization1":
                 method = SaliencyClusteringOptimization(num_epochs=500, regularization_strength=0.001, cluster_fraction=0.1,
-                                                        number_of_points=1000, clusters=[8], sampling="coreset", lab_to_rgb=False)
+                                                        number_of_points=1000, clusters=[8], sampling="coreset", lab_to_rgb=True)
             elif name == "SaliencyClusteringOptimization2":
                 method = SaliencyClusteringOptimization(num_epochs=500, regularization_strength=0.001, cluster_fraction=0.1,
-                                                        number_of_points=1000, clusters=[16], sampling="coreset", lab_to_rgb=False)
+                                                        number_of_points=1000, clusters=[16], sampling="coreset", lab_to_rgb=True)
             elif name == "SaliencyClusteringOptimization3":
                 method = SaliencyClusteringOptimization(num_epochs=500, regularization_strength=0.001, cluster_fraction=0.1,
-                                                        number_of_points=1000, clusters=[8, 16, 32, 64], sampling="coreset", lab_to_rgb=False)
+                                                        number_of_points=1000, clusters=[8, 16, 32, 64], sampling="coreset", lab_to_rgb=True)
 
             exists = False            
             dst_path = str(Path(args.dst) / f"{index}_{name}.png")
