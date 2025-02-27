@@ -10,11 +10,9 @@ import time
 from msi_visual.app.utils.pipeline import create_pipeline
 from msi_visual.app.utils.extraction import get_extraction
 import wx
+
 app = wx.App()
 wx.DisableAsserts()
-
-
-
 
 extraction_tab, pipeline_tab = st.tabs(["Data", "Visualizations"])
 
@@ -48,6 +46,23 @@ with pipeline_tab:
                 export_path = dialog.GetPath()
                 joblib.dump(models, export_path)
 
+
+    parametric = st.checkbox(
+        "Parametric Model",
+        value=False,
+        help="Train a Parametric XGboost model on the output"
+    )
+
+    if parametric:
+        downsample_options = [1, 2, 4, 6, 8, 16, 32, 64, 128]
+        downsample_factor = st.selectbox(
+            "Downsample Factor", 
+            options=downsample_options,
+            index=0,
+            help="Select factor to downsample data by along each axis"
+        )
+        downsample_factor = int(downsample_factor)
+
     model, normalization, output_path = create_pipeline()
     if model:
         models.append(model)
@@ -59,6 +74,8 @@ with pipeline_tab:
     st.write(pipeline)
     
     models = [names_to_models[name] for name in pipeline]
+    # if parametric:
+    #     models = [ParametricModel(model, downsample_factor) for model in models if not isinstance(model, ParametricModel)]
     joblib.dump(models, 'pipeline.cache')
     
     paths = defaultdict(list)

@@ -313,13 +313,17 @@ def region_with_all_comparisons(stats_method):
 def show_ion_images(mzs):
     for path in st.session_state["data"]:
         img = st.session_state["data"][path]
+        mask = img.max(axis = -1)
         aggregated = []
         for mz in mzs:
             extraction_mzs = st.session_state["extraction_mzs"][path]
 
-            ion, mz = create_ion_image(img, mz, extraction_mzs)
+            ion, mz = create_ion_image(img, mz, extraction_mzs, mask)
+
             st.image(ion)
             ion, mz = get_raw_ion_image(img, mz, extraction_mzs)                    
+
+
             aggregated.append(ion)
         
         if len(aggregated) > 1:
@@ -328,9 +332,44 @@ def show_ion_images(mzs):
             aggregated = np.mean(aggregated, axis=0)
             aggregated = aggregated / np.max(aggregated)
             aggregated = np.uint8(aggregated * 255)
-            aggregated = cv2.applyColorMap(aggregated, cmapy.cmap('viridis'))[:, :, ::-1].copy()
+
+            mask = img.max(axis=-1) > 0
+            # Convert grayscale to RGB IHC-like coloring
+            # Create RGB image with brown for high values and light pink for low values
+            rgb = np.zeros((ion.shape[0], ion.shape[1], 3), dtype=np.uint8)
+            ion = aggregated
+            # Brown color (RGB: 139, 69, 19) for high values
+            # Light pink (RGB: 255, 228, 225) for low values
+            rgb[:,:,0] = np.uint8(255 - ion * 0.45)  # R channel 
+            rgb[:,:,1] = np.uint8(228 - ion * 0.62)  # G channel
+            rgb[:,:,2] = np.uint8(225 - ion * 0.81)  # B channel
+
+
+            # Create a colormap from white to brown
+            white = np.array([255, 255, 255])
+            brown = np.array([139, 69, 19]) 
+            
+            # Create normalized intensity values between 0 and 1
+            norm_ion = ion.astype(float) / 255
+            
+            # For each pixel, interpolate between white and brown based on intensity
+            for i in range(3):  # RGB channels
+                rgb[:,:,i] = np.uint8(white[i] + (brown[i] - white[i]) * norm_ion)
+
+            rgb[mask == 0] = 0
+
+
+
+            #mz_img = visualizations.create_ion_image(img, mz_index) * 1
+            aggregated = rgb
+
+
+            #aggregated = cv2.applyColorMap(aggregated, cmapy.cmap('viridis'))[:, :, ::-1].copy()
+
+            aggregated[mask == 0] = 0
+
             if st.session_state['rotate']:
-                aggregated = aggregated.transpose().transpose(1, 2, 0)[::-1, :, :]
+               aggregated = aggregated.transpose().transpose(1, 2, 0)[::-1, :, :]
             st.image(aggregated)
 
 
@@ -341,7 +380,7 @@ def show_mz_on_ion_image(ion, mz):
     fontColor = (255, 255, 255)
     thickness = 1
     lineType = 1
-    ion = cv2.putText(ion, f"{mz:.3f}",
+    ion = cv2.putText(ion, f"{mz:.5f}",
                          bottomLeftCornerOfText,
                          font,
                          fontScale,
@@ -359,9 +398,16 @@ def get_raw_ion_image(img, mz, extraction_mzs):
     ion = visualizations.create_ion_img(img, mz_index)
     return ion, closest_mz
 
-def create_ion_image(img, mz, extraction_mzs):
+def create_ion_image(img, mz, extraction_mzs, mask = None):
     closest_mz, mz_index = get_closest_mz(mz, extraction_mzs)
     ion = visualizations.create_ion_heatmap(img, mz_index)
+
+    if mask is not None:
+        ion[mask == 0] = 0
+
+    if st.session_state['rotate']:
+        ion = ion.transpose().transpose(1, 2, 0)[::-1, :, :].copy()
+
     ion = show_mz_on_ion_image(ion, closest_mz)
     print("setting ion", mz, closest_mz)
     st.session_state.ion = ion

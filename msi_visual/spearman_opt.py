@@ -28,7 +28,7 @@ class SpearmanOptimization:
         self.similarity_reg = similarity_reg
 
     def __repr__(self):
-        return f"Saliency Optimization: num_epochs: {self.num_epochs} regularization_strength: {self.regularization_strength} \
+        return f"Spearman Optimization: num_epochs: {self.num_epochs} regularization_strength: {self.regularization_strength} \
             sampling: {self.sampling} number_of_points:{self.number_of_points}"
 
     def get_reference_points(self, data, Np):
