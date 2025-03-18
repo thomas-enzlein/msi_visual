@@ -1,6 +1,7 @@
-﻿# MSI-VISUAL: Next generation visualizations and tools for mass spectometry imaging
+﻿[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+# MSI-VISUAL: Next generation visualizations and tools for mass spectometry imaging
 
 
 ![MSI-VISUAL Logo](app/logo.png)
