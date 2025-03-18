@@ -1,5 +1,8 @@
 ﻿# MSI-VISUAL: high fidelity visualization, mapping and exploration of mass spectrometry images
 
+![MSI-VISUAL Logo](app/logo.png)
+
+
 `pip install msi-visual`
 
 ⭐ Unlock the potential of mass spectrometry imaging (MSI) with rich visualizations showing hidden information.
@@ -10,14 +13,19 @@
 
 ![Example MSI Visualization](images/salo.jpg)
 
+![Demonstrating our saliency optimization method on a human Kidney](images/MetaspaceKidneyExample.png)
+
 
 We believe that Mass Spectometry Imaging is the future of biological and medical diagnostics and research. There is extremely rich information in this kind of data that is currently not being utilized. We are on a mission to solve this.
+
+By adapting our research on high global structure preservation dimensionality reduction ([see our preprint at arXiv:2503.07609](https://arxiv.org/abs/2503.07609)) ([python library](https://github.com/jacobgil/pcc)) to MSI, we are able to create extremely detail rich visualizations for MSI, reveleaing details hidden by existing methods like UMAP.
+
 
 MSI-VISUAL is a python package for visualizing and interacting with MSI data.
 It is intended for both life science researchers that can use it from an interactive web app, as well as developers that can use the underlying algorithms in their own software.
 It includes:
 - A python library with multiple novel state of the art visualization, evaluation algorithms for MSI data, methods for statistical testing between different regions, tools for data extraction and normalization, and tools for visualizing region differences.
-- A web app (currently based on [streamlit](https://streamlit.io/)) for interactively visualizing MSI data, and performing statistical comparison between different regions, to map significant m/z values.
+- A web app (currently based on [streamlit](https://streamlit.io/)) for extracting MSI data, interactively visualizing MSI data, and performing statistical comparison between different regions, to map significant m/z values.
 
 
 # Running the web app
