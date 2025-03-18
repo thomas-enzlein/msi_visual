@@ -1,6 +1,4 @@
-﻿# MSI-VISUAL: New visualization methods for
-mass spectrometry imaging and tools for
-interactive mapping and exploration of m/z values
+﻿# MSI-VISUAL: New visualization methods for mass spectrometry imaging and tools for interactive mapping and exploration of m/z values
 
 ![MSI-VISUAL Logo](app/logo.png)
 
