@@ -43,7 +43,8 @@ pip install -e .
 ```
 
 ```bash
-streamlit run app/main.py
+cd app
+streamlit run main.py
 ```
 
 
